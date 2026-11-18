@@ -15,6 +15,10 @@ import { Connect4Board } from "./connect4-board";
 import { DuelBoard } from "./duel-board";
 import { TicTacToeBoard } from "./tictactoe-board";
 import { AwayBanner, TurnClock } from "./turn-clock";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import {
+  ChatDock, MAX_CHAT, REACTIONS, ReactionLayer, type ChatMessage, type FloatingReaction,
+} from "./chat";
 
 const SIMULTANEOUS = new Set(["bidtactoe", "duel"]);
 
@@ -30,6 +34,55 @@ export function Room({ code }: { code: string }) {
   const [online, setOnline] = useState<Set<string>>(new Set()); // player ids with the room open
   const [linkUp, setLinkUp] = useState(true); // our own realtime connection
   const [presenceReady, setPresenceReady] = useState(false); // got the first presence list
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
+  // Chat + reactions: sent straight between phones over the room channel (not stored).
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [floating, setFloating] = useState<FloatingReaction[]>([]);
+  const chatOpenRef = useRef(false);
+  const lastSentRef = useRef({ chat: 0, react: 0 });
+  const viewRef = useRef<RoomView | null>(null);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  const displayName = useCallback((id: string, fallback: string) => {
+    // Use the server's name for seated players so names can't be faked.
+    return viewRef.current?.players.find((p) => p.id === id)?.name ?? fallback;
+  }, []);
+
+  const receiveChat = useCallback((m: ChatMessage) => {
+    if (!m?.text || typeof m.text !== "string") return;
+    const clean = { ...m, text: m.text.slice(0, MAX_CHAT), name: displayName(m.from, String(m.name).slice(0, 20)) };
+    setMessages((list) => [...list.slice(-49), clean]);
+    if (!chatOpenRef.current) setUnread((n) => n + 1);
+  }, [displayName]);
+
+  const showReaction = useCallback((emoji: unknown, from: unknown) => {
+    if (typeof emoji !== "string" || !(REACTIONS as readonly string[]).includes(emoji)) return;
+    const key = `${Date.now()}-${Math.random()}`;
+    const r = { key, emoji, name: displayName(String(from), "Spectator"), x: Math.random() };
+    setFloating((f) => [...f.slice(-7), r]);
+    setTimeout(() => setFloating((f) => f.filter((x) => x.key !== key)), 2300);
+  }, [displayName]);
+
+  function sendChat(text: string) {
+    const now = Date.now();
+    if (now - lastSentRef.current.chat < 800) return; // light spam guard
+    lastSentRef.current.chat = now;
+    const m: ChatMessage = { id: `${now}-${Math.random()}`, from: me().id, name: getName(), text, at: now };
+    setMessages((list) => [...list.slice(-49), { ...m, name: "You" }]);
+    channelRef.current?.send({ type: "broadcast", event: "chat", payload: m });
+  }
+
+  function sendReaction(emoji: string) {
+    const now = Date.now();
+    if (now - lastSentRef.current.react < 600) return;
+    lastSentRef.current.react = now;
+    showReaction(emoji, me().id);
+    channelRef.current?.send({ type: "broadcast", event: "react", payload: { emoji, from: me().id } });
+  }
 
   const accept = useCallback((v: RoomView) => {
     const fresher = pendingRef.current ? v.version > versionRef.current : v.version >= versionRef.current;
@@ -72,6 +125,8 @@ export function Room({ code }: { code: string }) {
         if (payload?.view) accept(payload.view as RoomView);
         else if ((payload?.version ?? Infinity) > versionRef.current) refresh();
       })
+      .on("broadcast", { event: "chat" }, ({ payload }) => receiveChat(payload as ChatMessage))
+      .on("broadcast", { event: "react" }, ({ payload }) => showReaction(payload?.emoji, payload?.from))
       .on("presence", { event: "sync" }, () => {
         setOnline(new Set(Object.keys(ch.presenceState())));
         setPresenceReady(true);
@@ -85,6 +140,7 @@ export function Room({ code }: { code: string }) {
           setLinkUp(false);
         }
       });
+    channelRef.current = ch;
     const poll = setInterval(() => document.visibilityState === "visible" && refresh(), 5000);
     const onVis = () => document.visibilityState === "visible" && refresh();
     const onNet = () => setLinkUp(navigator.onLine);
@@ -92,6 +148,7 @@ export function Room({ code }: { code: string }) {
     window.addEventListener("online", onNet);
     window.addEventListener("offline", onNet);
     return () => {
+      channelRef.current = null;
       realtime().removeChannel(ch);
       clearInterval(poll);
       document.removeEventListener("visibilitychange", onVis);
@@ -333,6 +390,22 @@ export function Room({ code }: { code: string }) {
           Rematch
         </button>
       )}
+
+      <ChatDock
+        messages={messages}
+        myId={me().id}
+        unread={unread}
+        onOpen={() => {
+          chatOpenRef.current = true;
+          setUnread(0);
+        }}
+        onClose={() => {
+          chatOpenRef.current = false;
+        }}
+        onSend={sendChat}
+        onReact={sendReaction}
+      />
+      <ReactionLayer items={floating} />
 
       <HowToPlayButton game={view.game} className="self-center" />
 
