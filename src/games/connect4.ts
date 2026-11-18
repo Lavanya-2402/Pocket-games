@@ -83,4 +83,9 @@ export const connect4: GameEngine<Connect4State, Connect4Move> = {
   winner: (s) => s.winner,
   turn: (s) => (s.winner ? null : s.players[s.turn]),
   viewFor: (s) => s,
+  timeLimit: () => 30,
+  autoMove(s, _p, rng) {
+    const open = Array.from({ length: COLS }, (_, c) => c).filter((c) => dropRow(s.board, c) !== -1);
+    return { col: open[Math.floor(rng() * open.length)] };
+  },
 };

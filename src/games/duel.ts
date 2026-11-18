@@ -114,6 +114,13 @@ export const duel: GameEngine<DuelState, DuelMove> = {
 
   winner: (s) => s.winner,
   turn: () => null, // simultaneous
+  waitingOn: (s) => s.players.filter((_, i) => s.pending[i] === null),
+  timeLimit: () => 15,
+  autoMove(s, playerId) {
+    // Out of time: defend if allowed, otherwise charge.
+    const seat = s.players.indexOf(playerId) as Seat;
+    return { action: whyNot(s, seat, "defend") ? "charge" : "defend" };
+  },
   viewFor(s, viewerId): DuelView {
     const me = viewerId ? s.players.indexOf(viewerId) : -1;
     const mask = (i: number) => (s.pending[i] === null ? null : i === me ? s.pending[i] : "hidden");

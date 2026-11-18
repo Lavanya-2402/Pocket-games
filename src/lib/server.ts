@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getEngine } from "@/games";
+import { outcome, unwrap, waitingOn } from "@/games/runner";
 
 let admin: SupabaseClient | null = null;
 
@@ -125,6 +126,8 @@ export function seatedIds(players: PlayerRow[]): [string, string] | null {
 export function roomView(room: RoomRow, players: PlayerRow[], viewerId: string | null) {
   const engine = getEngine(room.game)!;
   const me = players.find((p) => p.player_id === viewerId);
+  const { state, meta } = unwrap(room.state);
+  const live = state !== null && state !== undefined;
   return {
     code: room.code,
     game: room.game,
@@ -135,9 +138,17 @@ export function roomView(room: RoomRow, players: PlayerRow[], viewerId: string |
       .map((p) => ({ id: p.player_id, name: p.name, seat: p.seat })),
     spectators: players.filter((p) => p.seat === null).length,
     you: me ? { id: me.player_id, seat: me.seat } : null,
-    state: room.state ? engine.viewFor(room.state, viewerId) : null,
-    turn: room.state ? engine.turn(room.state) : null,
-    winner: room.state ? engine.winner(room.state) : null,
+    state: live ? engine.viewFor(state, viewerId) : null,
+    turn: live && !meta.forfeit ? engine.turn(state) : null,
+    winner: live ? outcome(engine, state, meta) : null,
+    clock: {
+      deadline: meta.deadline,
+      limit: live ? engine.timeLimit(state) : 0,
+      serverNow: Date.now(),
+      waitingOn: live && !meta.forfeit ? waitingOn(engine, state) : [],
+      misses: meta.misses,
+      forfeit: meta.forfeit,
+    },
   };
 }
 

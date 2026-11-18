@@ -113,6 +113,13 @@ export const bidTacToe: GameEngine<BidTacToeState, Bid> = {
 
   winner: (s) => s.winner,
   turn: () => null, // simultaneous
+  waitingOn: (s) => s.players.filter((_, i) => s.pending[i] === null),
+  timeLimit: () => 30,
+  autoMove(s, _p, rng) {
+    // Out of time: bid nothing on a random open square.
+    const open = s.board.flatMap((c, i) => (c === null ? [i] : []));
+    return { bid: 0, cell: open[Math.floor(rng() * open.length)] };
+  },
   viewFor(s, viewerId): BidTacToeView {
     const me = viewerId ? s.players.indexOf(viewerId) : -1;
     const mask = (i: number) => (s.pending[i] === null ? null : i === me ? s.pending[i] : "hidden");

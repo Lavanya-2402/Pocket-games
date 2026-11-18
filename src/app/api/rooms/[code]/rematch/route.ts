@@ -1,4 +1,5 @@
 import { getEngine } from "@/games";
+import { outcome, start, unwrap, wrap } from "@/games/runner";
 import {
   authPlayer, broadcast, codeSchema, handle, HttpError, identity, loadRoom, roomView, saveState,
 } from "@/lib/server";
@@ -14,10 +15,12 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/rematch"
     const me = authPlayer(players, who);
     if (!me || me.seat === null) throw new HttpError(403, "Only players can start a rematch");
     const engine = getEngine(room.game)!;
-    if (!room.state || engine.winner(room.state) === null) throw new HttpError(409, "Game still in progress");
+    const { state: prev, meta } = unwrap(room.state);
+    if (!prev || outcome(engine, prev, meta) === null) throw new HttpError(409, "Game still in progress");
 
-    const prev = (room.state as { players: [string, string] }).players;
-    const state = engine.init([prev[1], prev[0]], Math.floor(Math.random() * 2 ** 31));
+    const [p0, p1] = (prev as { players: [string, string] }).players;
+    const fresh = engine.init([p1, p0], Math.floor(Math.random() * 2 ** 31));
+    const state = wrap(fresh, start(engine, fresh, Date.now()));
     const version = await saveState(code, room.version, state);
     const next = { ...room, state, version };
     await broadcast(next, players);

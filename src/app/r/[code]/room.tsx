@@ -8,13 +8,14 @@ import { getEngine } from "@/games";
 import type { BidTacToeView } from "@/games/bidtactoe";
 import type { Connect4State } from "@/games/connect4";
 import type { DuelView } from "@/games/duel";
+import type { TicTacToeState } from "@/games/tictactoe";
 import { BidTacToeBoard } from "./bidtactoe-board";
+import { Connect4Board } from "./connect4-board";
 import { DuelBoard } from "./duel-board";
+import { TicTacToeBoard } from "./tictactoe-board";
+import { TurnClock } from "./turn-clock";
 
 const SIMULTANEOUS = new Set(["bidtactoe", "duel"]);
-import type { TicTacToeState } from "@/games/tictactoe";
-import { Connect4Board } from "./connect4-board";
-import { TicTacToeBoard } from "./tictactoe-board";
 
 export function Room({ code }: { code: string }) {
   const [name, setNameState] = useState<string | null>(null);
@@ -24,11 +25,13 @@ export function Room({ code }: { code: string }) {
   const versionRef = useRef(-1);
   const youRef = useRef<RoomView["you"]>(null);
   const pendingRef = useRef(false); // a move is in flight; don't let stale data undo it
+  const [offset, setOffset] = useState(0); // server clock − phone clock
 
   const accept = useCallback((v: RoomView) => {
     const fresher = pendingRef.current ? v.version > versionRef.current : v.version >= versionRef.current;
     if (fresher) {
       versionRef.current = v.version;
+      setOffset(v.clock.serverNow - Date.now());
       if (v.you) youRef.current = v.you;
       setView(v.you ? v : { ...v, you: youRef.current });
     }
@@ -73,6 +76,24 @@ export function Room({ code }: { code: string }) {
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [!!view, code, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Turn clock: when the deadline passes, ask the server to enforce it. The server
+  // checks the time itself, so an early or duplicate call is harmless.
+  const tick = useCallback(() => {
+    api(`/rooms/${code}/tick`, {}).then(accept).catch(() => {});
+  }, [accept, code]);
+  const deadline = view?.clock.deadline ?? null;
+  useEffect(() => {
+    if (deadline === null) return;
+    const wait = deadline - (Date.now() + offset) + 400;
+    const t = setTimeout(tick, Math.max(0, wait));
+    // If the first try was too early (clock drift) or lost, keep nudging.
+    const retry = setInterval(() => Date.now() + offset > deadline + 2500 && tick(), 3000);
+    return () => {
+      clearTimeout(t);
+      clearInterval(retry);
+    };
+  }, [deadline, offset, tick]);
 
   async function move(m: unknown) {
     if (!view?.state || !view.you || pendingRef.current) return;
@@ -210,6 +231,22 @@ export function Room({ code }: { code: string }) {
       </div>}
 
       <p aria-live="polite" className="font-display text-3xl font-extrabold text-center">{status}</p>
+      {view.clock.forfeit && (
+        <p className="-mt-4 text-center text-sm text-muted">
+          {view.clock.forfeit === myId ? "You" : nameOf(view, view.clock.forfeit)} ran out of time too many times.
+        </p>
+      )}
+
+      {view.clock.deadline !== null && !view.winner && (
+        <TurnClock
+          key={view.clock.deadline}
+          deadline={view.clock.deadline}
+          total={view.clock.limit}
+          offset={offset}
+          urgent={!!myId && view.clock.waitingOn.includes(myId)}
+          label={clockLabel(view, myId)}
+        />
+      )}
 
       {!view.state && (
         <div className="rounded-2xl border border-dashed border-line p-5 text-center text-muted">
@@ -268,6 +305,16 @@ export function Room({ code }: { code: string }) {
 
 function nameOf(v: RoomView, id: string | null) {
   return v.players.find((p) => p.id === id)?.name ?? "Someone";
+}
+
+function clockLabel(v: RoomView, myId?: string) {
+  const waiting = v.clock.waitingOn;
+  if (myId && waiting.includes(myId)) {
+    const misses = v.clock.misses[myId] ?? 0;
+    return misses > 0 ? `Your time · missed ${misses} turn${misses > 1 ? "s" : ""}` : "Your time";
+  }
+  if (waiting.length === 1) return `${nameOf(v, waiting[0])}'s time`;
+  return "Round time";
 }
 
 function markFor(v: RoomView, id?: string) {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getEngine } from "@/games";
+import { start, wrap } from "@/games/runner";
 import {
   authPlayer, broadcast, codeSchema, db, handle, HttpError, identity, loadRoom,
   nameSchema, parseBody, roomView, saveState, seatedIds,
@@ -36,7 +37,8 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/join">) 
     const seated = seatedIds(players);
     if (!room.state && seated) {
       const engine = getEngine(room.game)!;
-      const state = engine.init(seated, Math.floor(Math.random() * 2 ** 31));
+      const fresh = engine.init(seated, Math.floor(Math.random() * 2 ** 31));
+      const state = wrap(fresh, start(engine, fresh, Date.now()));
       try {
         room = { ...room, state, version: await saveState(code, room.version, state) };
       } catch (e) {

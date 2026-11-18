@@ -22,6 +22,12 @@ export interface GameEngine<S, M> {
   turn(state: S): string | null;
   /** What a given viewer may see. Hides secret info in hidden-info games. */
   viewFor(state: S, viewerId: string | null): unknown;
+  /** Players who still need to act. Defaults to [turn] for turn-based games. */
+  waitingOn?(state: S): string[];
+  /** Seconds allowed for the current turn/round. */
+  timeLimit(state: S): number;
+  /** A legal move to make on a player's behalf when their time runs out. */
+  autoMove(state: S, playerId: string, rng: () => number): M;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

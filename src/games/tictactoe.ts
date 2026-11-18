@@ -60,4 +60,9 @@ export const ticTacToe: GameEngine<TicTacToeState, TicTacToeMove> = {
   winner: (s) => s.winner,
   turn: (s) => (s.winner ? null : s.players[s.turn]),
   viewFor: (s) => s, // nothing hidden
+  timeLimit: () => 20,
+  autoMove(s, _p, rng) {
+    const open = s.board.flatMap((c, i) => (c === null ? [i] : []));
+    return { cell: open[Math.floor(rng() * open.length)] };
+  },
 };
