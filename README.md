@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pocket Games
 
-## Getting Started
+Two phones, one game. Create a room, share the 4-letter code, play.
+100% free stack: **Vercel Hobby** + **Supabase Free** (no credit card).
 
-First, run the development server:
+Games: Tic Tac Toe (more coming).
 
+## One-time setup (~10 min)
+
+### 1. Supabase (database + realtime)
+1. Sign up at https://supabase.com → **New project** (Free plan; any region near you).
+2. **SQL Editor → New query** → paste all of [`supabase/schema.sql`](supabase/schema.sql) → **Run**.
+3. **Project Settings → API Keys** → copy:
+   - Project URL
+   - **Publishable** key (`sb_publishable_…`, or legacy `anon`)
+   - **Secret** key (`sb_secret_…`, or legacy `service_role`) — keep private
+
+> Free projects pause after 7 days without use. Hit **Restore** in the dashboard — free, data kept.
+
+### 2. Run locally (optional)
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local   # fill in the 3 values
+npm install
+npm run dev -- -H 0.0.0.0     # phones on the same Wi-Fi: open http://<PC-IP>:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Deploy to Vercel (play from anywhere, any network)
+1. Push this folder to a GitHub repo.
+2. https://vercel.com → sign in with GitHub → **Add New → Project** → import the repo.
+3. **Environment Variables**: add the same 3 from `.env.example`.
+4. **Deploy**. Open the `*.vercel.app` URL on both phones.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Tip: on each phone, browser menu → **Add to Home Screen** for an app-like icon.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How to play
+Phone A: enter name → **Tic Tac Toe** → **Share** (or read out the code).
+Phone B: open the link, or enter the code → **Join**.
+Third+ people who join just spectate. **Rematch** swaps who goes first.
 
-## Learn More
+## How it works
+- **Server is the authority.** Phones `POST /api/rooms/:code/move`; the server validates with the game engine, saves with an optimistic lock on `version`, logs to `moves`, then pings the room over Supabase Realtime. Each phone refetches *its own* view (so hidden-info games can hide cards later).
+- Polling every 5 s is a fallback if realtime drops.
+- Identity is anonymous: a random id + secret in each phone's `localStorage`.
+- Database is locked with RLS; only the server (secret key) can touch it.
 
-To learn more about Next.js, take a look at the following resources:
+## Adding a game
+1. `src/games/<game>.ts` implementing `GameEngine` from `src/games/types.ts`.
+2. Register it in `src/games/index.ts`.
+3. Add a board component and a button on the home page.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm test     # engine unit tests
+```
