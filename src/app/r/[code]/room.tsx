@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, getName, me, realtime, setName, type RoomView } from "@/lib/client";
 import { missLimit } from "@/games/runner";
+import { isMuted, play, setMuted } from "@/lib/sound";
 import { HowToPlayButton } from "@/components/how-to-play";
 import { getEngine } from "@/games";
 import type { BidTacToeView } from "@/games/bidtactoe";
@@ -57,6 +58,7 @@ export function Room({ code }: { code: string }) {
     const clean = { ...m, text: m.text.slice(0, MAX_CHAT), name: displayName(m.from, String(m.name).slice(0, 20)) };
     setMessages((list) => [...list.slice(-49), clean]);
     if (!chatOpenRef.current) setUnread((n) => n + 1);
+    play("chat");
   }, [displayName]);
 
   const showReaction = useCallback((emoji: unknown, from: unknown) => {
@@ -64,6 +66,7 @@ export function Room({ code }: { code: string }) {
     const key = `${Date.now()}-${Math.random()}`;
     const r = { key, emoji, name: displayName(String(from), "Spectator"), x: Math.random() };
     setFloating((f) => [...f.slice(-7), r]);
+    if (from !== me().id) play("react");
     setTimeout(() => setFloating((f) => f.filter((x) => x.key !== key)), 2300);
   }, [displayName]);
 
@@ -87,6 +90,8 @@ export function Room({ code }: { code: string }) {
   const accept = useCallback((v: RoomView) => {
     const fresher = pendingRef.current ? v.version > versionRef.current : v.version >= versionRef.current;
     if (fresher) {
+      // Someone else's move (ours plays its own sound on tap). Skip the very first load.
+      if (versionRef.current >= 0 && v.version > versionRef.current && !pendingRef.current && v.state) play("opponent");
       versionRef.current = v.version;
       setOffset(v.clock.serverNow - Date.now());
       if (v.you) youRef.current = v.you;
@@ -175,9 +180,26 @@ export function Room({ code }: { code: string }) {
     };
   }, [deadline, offset, tick]);
 
+  // Game-over fanfare (not when opening a room that already finished).
+  const winner = view?.winner ?? null;
+  const prevWinner = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (prevWinner.current === null && winner !== null) {
+      const myId = me().id;
+      const seated = viewRef.current?.players.some((p) => p.id === myId);
+      play(winner === "draw" ? "draw" : !seated || winner === myId ? "win" : "lose");
+    }
+    if (viewRef.current?.state || winner !== null) prevWinner.current = winner;
+  }, [winner, view?.state]);
+
+  const [mutedState, setMutedState] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is client-only
+  useEffect(() => setMutedState(isMuted()), []);
+
   async function move(m: unknown) {
     if (!view?.state || !view.you || pendingRef.current) return;
     setError("");
+    play("tap");
     // Optimistic: run the same pure engine locally so the mark appears instantly.
     // The server still decides; its answer replaces this.
     const engine = getEngine(view.game);
@@ -193,6 +215,7 @@ export function Room({ code }: { code: string }) {
     } catch (e) {
       pendingRef.current = false;
       setError((e as Error).message);
+      play("error");
       setView(view); // undo the optimistic mark
       refresh();
     }
@@ -284,6 +307,18 @@ export function Room({ code }: { code: string }) {
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <Link href="/" className="text-sm text-muted">← Home</Link>
+        <button
+          onClick={() => {
+            setMuted(!mutedState);
+            setMutedState(!mutedState);
+            if (mutedState) play("tap");
+          }}
+          aria-label={mutedState ? "Unmute sounds" : "Mute sounds"}
+          aria-pressed={mutedState}
+          className="ml-auto mr-2 size-10 rounded-full border border-line bg-surface text-lg"
+        >
+          {mutedState ? "🔇" : "🔊"}
+        </button>
         <button
           onClick={share}
           className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 text-sm"

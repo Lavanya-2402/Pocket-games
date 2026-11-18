@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { play } from "@/lib/sound";
 
 /** Re-render every `ms` while mounted. */
 export function useNow(ms: number) {
@@ -58,6 +59,10 @@ export function TurnClock({
   const secs = Math.ceil(left / 1000);
   const frac = Math.min(1, left / (total * 1000));
   const low = secs <= 5;
+  // Tick each of your last 5 seconds.
+  useEffect(() => {
+    if (urgent && secs > 0 && secs <= 5) play("tick");
+  }, [secs, urgent]);
   return (
     <div className="flex flex-col gap-1.5" role="timer" aria-live={low && urgent ? "assertive" : "off"}>
       <div className="flex items-center justify-between text-sm">
