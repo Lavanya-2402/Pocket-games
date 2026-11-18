@@ -14,6 +14,8 @@ import type { TicTacToeState } from "@/games/tictactoe";
 import { BidTacToeBoard } from "./bidtactoe-board";
 import { Connect4Board } from "./connect4-board";
 import { DuelBoard } from "./duel-board";
+import type { SeaBattleView } from "@/games/seabattle";
+import { SeaBattleBoard } from "./seabattle-board";
 import { TicTacToeBoard } from "./tictactoe-board";
 import { AwayBanner, TurnClock } from "./turn-clock";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -300,7 +302,10 @@ export function Room({ code }: { code: string }) {
     const mine = isPlayer ? s.pending[view.you!.seat!] : null;
     const verb = view.game === "duel" ? "pick your move" : "place your bid";
     status = !isPlayer ? `Round ${s.round}: choosing…` : mine ? "Locked in" : `Round ${s.round}: ${verb}`;
-  } else if (view.turn === myId) status = "Your turn";
+  } else if (view.game === "seabattle" && (view.state as SeaBattleView).phase === "place") {
+    const ready = (view.state as SeaBattleView).ready;
+    status = !isPlayer ? "Placing ships…" : ready[view.you!.seat!] ? "Ships ready" : "Place your ships";
+  } else if (view.turn === myId) status = view.game === "seabattle" ? "Your shot" : "Your turn";
   else status = isPlayer ? `${opponent?.name ?? "Opponent"}'s turn` : `${nameOf(view, view.turn)}'s turn`;
 
   return (
@@ -412,6 +417,14 @@ export function Room({ code }: { code: string }) {
           onAct={(action) => move({ action })}
         />
       )}
+      {view.state != null && view.game === "seabattle" && (
+        <SeaBattleBoard
+          state={view.state as SeaBattleView}
+          mySeat={view.you?.seat ?? null}
+          names={[seat(0)?.name ?? "P1", seat(1)?.name ?? "P2"]}
+          onMove={move}
+        />
+      )}
       {view.state != null && view.game === "connect4" && (
         <Connect4Board
           state={view.state as Connect4State}
@@ -480,5 +493,6 @@ function markFor(v: RoomView, id?: string) {
   const i = id ? players?.indexOf(id) : -1;
   if (i !== 0 && i !== 1) return "–";
   if (v.game === "connect4") return "●";
+  if (v.game === "seabattle") return "⚓";
   return i === 0 ? "✕" : "◯";
 }

@@ -1,5 +1,6 @@
 import { START_COINS } from "./bidtactoe";
 import { COST, MAX_DEFENDS, MAX_ENERGY, MAX_HP, MAX_ROUNDS, START_ENERGY } from "./duel";
+import { FLEET, SHIP_NAMES, SIZE } from "./seabattle";
 
 export interface Rules {
   title: string;
@@ -67,6 +68,22 @@ export const RULES: Record<string, Rules> = {
     tips: [
       "Charging leaves you open — charge when your opponent has no energy.",
       "If they've defended twice in a row, they can't defend this round.",
+    ],
+  },
+  seabattle: {
+    title: "Sea Battle",
+    tagline: "Hide your fleet. Hunt theirs.",
+    goal: "Sink every ship in your opponent's fleet before they sink yours.",
+    steps: [
+      `Each player has a ${SIZE}×${SIZE} grid and a fleet of ${FLEET.length} ships: ${FLEET.map((l) => `${SHIP_NAMES[l]} (${l})`).join(", ")}.`,
+      "First, both players place their ships in secret. Tap a ship to select it, tap it again to rotate, tap water to move it — or Shuffle. Then tap Ready.",
+      "Then take turns firing: tap a square in enemy waters.",
+      "✕ means hit, a dot means miss. When every square of a ship is hit, it sinks and is revealed.",
+      "Ships can't overlap, but they can touch.",
+    ],
+    tips: [
+      "After a hit, fire at the squares next to it to find which way the ship runs.",
+      "Spread your first shots out in a checkerboard pattern — every ship covers at least 2 squares.",
     ],
   },
 };
