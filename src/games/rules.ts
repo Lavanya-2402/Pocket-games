@@ -1,4 +1,5 @@
 import { START_COINS } from "./bidtactoe";
+import { HAND_SIZE } from "./colorrush";
 import { COST, MAX_DEFENDS, MAX_ENERGY, MAX_HP, MAX_ROUNDS, START_ENERGY } from "./duel";
 import { FLEET, SHIP_NAMES, SIZE } from "./seabattle";
 
@@ -84,6 +85,24 @@ export const RULES: Record<string, Rules> = {
     tips: [
       "After a hit, fire at the squares next to it to find which way the ship runs.",
       "Spread your first shots out in a checkerboard pattern — every ship covers at least 2 squares.",
+    ],
+  },
+  colorrush: {
+    title: "Color Rush",
+    tagline: "Match colors. Empty your hand first.",
+    goal: "Be the first player to play all your cards.",
+    steps: [
+      `Each player gets ${HAND_SIZE} cards. One card starts face up in the middle.`,
+      "On your turn, play a card that matches the top card's color, or its number or symbol.",
+      "⊘ Block — your opponent loses their turn, so you go again.",
+      "+2 — your opponent draws 2 cards and loses their turn.",
+      "✦ Rainbow — play it on anything and choose the next color.",
+      "+4 Rainbow — choose the color; your opponent draws 4 and loses their turn.",
+      "Can't play (or don't want to)? Tap the deck to draw one. If it matches you may play it, otherwise pass.",
+    ],
+    tips: [
+      "Save Rainbows for when you have no match — they can't be blocked.",
+      "When your opponent is down to their last card, hit them with +2 or +4.",
     ],
   },
 };

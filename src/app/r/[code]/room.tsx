@@ -14,7 +14,9 @@ import type { TicTacToeState } from "@/games/tictactoe";
 import { BidTacToeBoard } from "./bidtactoe-board";
 import { Connect4Board } from "./connect4-board";
 import { DuelBoard } from "./duel-board";
+import type { ColorRushView } from "@/games/colorrush";
 import type { SeaBattleView } from "@/games/seabattle";
+import { ColorRushBoard } from "./colorrush-board";
 import { SeaBattleBoard } from "./seabattle-board";
 import { TicTacToeBoard } from "./tictactoe-board";
 import { AwayBanner, TurnClock } from "./turn-clock";
@@ -425,6 +427,14 @@ export function Room({ code }: { code: string }) {
           onMove={move}
         />
       )}
+      {view.state != null && view.game === "colorrush" && (
+        <ColorRushBoard
+          state={view.state as ColorRushView}
+          mySeat={view.you?.seat ?? null}
+          names={[seat(0)?.name ?? "P1", seat(1)?.name ?? "P2"]}
+          onMove={move}
+        />
+      )}
       {view.state != null && view.game === "connect4" && (
         <Connect4Board
           state={view.state as Connect4State}
@@ -494,5 +504,6 @@ function markFor(v: RoomView, id?: string) {
   if (i !== 0 && i !== 1) return "–";
   if (v.game === "connect4") return "●";
   if (v.game === "seabattle") return "⚓";
+  if (v.game === "colorrush") return "🂠";
   return i === 0 ? "✕" : "◯";
 }

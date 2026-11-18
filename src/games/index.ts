@@ -1,4 +1,5 @@
 import { bidTacToe } from "./bidtactoe";
+import { colorRush } from "./colorrush";
 import { connect4 } from "./connect4";
 import { duel } from "./duel";
 import { seaBattle } from "./seabattle";
@@ -11,6 +12,7 @@ export const GAMES: Record<string, AnyEngine> = {
   [bidTacToe.id]: bidTacToe,
   [duel.id]: duel,
   [seaBattle.id]: seaBattle,
+  [colorRush.id]: colorRush,
 };
 
 export function getEngine(id: string): AnyEngine | undefined {

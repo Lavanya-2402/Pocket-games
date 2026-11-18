@@ -121,6 +121,21 @@ export default function Home() {
           </span>
           <span aria-hidden className="text-2xl">⚓</span>
         </button>
+        <button
+          onClick={() => create("colorrush")}
+          disabled={busy}
+          className="flex h-20 items-center justify-between rounded-2xl bg-accent px-5 text-left text-accent-ink active:scale-[0.98] transition disabled:opacity-60"
+        >
+          <span>
+            <span className="block font-display text-2xl font-semibold">Color Rush</span>
+            <span className="block text-xs opacity-70">Match colors, empty your hand first</span>
+          </span>
+          <span aria-hidden className="flex -space-x-2">
+            <span className="h-8 w-6 rotate-[-10deg] rounded-md border border-white/70 bg-x" />
+            <span className="h-8 w-6 rounded-md border border-white/70 bg-o" />
+            <span className="h-8 w-6 rotate-[10deg] rounded-md border border-white/70 bg-[#d9a21b]" />
+          </span>
+        </button>
       </section>
 
       <section className="flex flex-col gap-2">
