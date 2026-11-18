@@ -84,7 +84,20 @@ export default function Home() {
             <span className="size-5 rounded-full bg-o" />
           </span>
         </button>
-        <p className="text-sm text-muted">More games coming: Bid-Tac-Toe, Simultaneous Duel.</p>
+        <button
+          onClick={() => create("bidtactoe")}
+          disabled={busy}
+          className="flex h-20 items-center justify-between rounded-2xl bg-accent px-5 text-left text-accent-ink active:scale-[0.98] transition disabled:opacity-60"
+        >
+          <span>
+            <span className="block font-display text-2xl font-semibold">Bid-Tac-Toe</span>
+            <span className="block text-xs opacity-70">Secret bids decide who places</span>
+          </span>
+          <span aria-hidden className="font-display text-xl">
+            <span className="text-x">✕</span> <span className="opacity-80">100</span>
+          </span>
+        </button>
+        <p className="text-sm text-muted">More games coming: Simultaneous Duel.</p>
       </section>
 
       <form onSubmit={join} className="flex flex-col gap-3">
