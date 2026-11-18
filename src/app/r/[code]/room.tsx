@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, getName, realtime, setName, type RoomView } from "@/lib/client";
+import { HowToPlayButton } from "@/components/how-to-play";
 import { getEngine } from "@/games";
 import type { BidTacToeView } from "@/games/bidtactoe";
 import type { Connect4State } from "@/games/connect4";
@@ -127,7 +128,7 @@ export function Room({ code }: { code: string }) {
     );
   }
 
-  if (name === null) return null;
+  if (name === null) return <p className="pt-10 text-muted">Loading…</p>;
 
   if (!name) {
     return (
@@ -253,6 +254,8 @@ export function Room({ code }: { code: string }) {
           Rematch
         </button>
       )}
+
+      <HowToPlayButton game={view.game} className="self-center" />
 
       {!isPlayer && <p className="text-center text-sm text-muted">You&apos;re spectating.</p>}
       {view.spectators > 0 && isPlayer && (

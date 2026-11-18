@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { RulesCard } from "@/components/how-to-play";
+import { RULES } from "@/games/rules";
 import { api, getName, setName } from "@/lib/client";
 
 export default function Home() {
@@ -108,6 +110,21 @@ export default function Home() {
           </span>
           <span aria-hidden className="text-2xl">⚔️</span>
         </button>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-medium text-muted">How to play</h2>
+        {Object.keys(RULES).map((g) => (
+          <details key={g} className="group rounded-2xl border border-line bg-surface">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 font-semibold [&::-webkit-details-marker]:hidden">
+              {RULES[g].title}
+              <span aria-hidden className="text-muted transition group-open:rotate-45">+</span>
+            </summary>
+            <div className="px-4 pb-4">
+              <RulesCard game={g} hideTitle />
+            </div>
+          </details>
+        ))}
       </section>
 
       <form onSubmit={join} className="flex flex-col gap-3">
