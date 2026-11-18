@@ -45,7 +45,7 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/join">) 
       }
     }
 
-    await broadcast(code, room.version);
+    await broadcast(room, players);
     return Response.json(roomView(room, players, who.id));
   });
 }

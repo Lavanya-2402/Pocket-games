@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, getName, realtime, setName, type RoomView } from "@/lib/client";
+import { getEngine } from "@/games";
 import { TicTacToeBoard } from "./tictactoe-board";
 
 export function Room({ code }: { code: string }) {
@@ -11,11 +12,15 @@ export function Room({ code }: { code: string }) {
   const [error, setError] = useState("");
   const [fatal, setFatal] = useState("");
   const versionRef = useRef(-1);
+  const youRef = useRef<RoomView["you"]>(null);
+  const pendingRef = useRef(false); // a move is in flight; don't let stale data undo it
 
   const accept = useCallback((v: RoomView) => {
-    if (v.version >= versionRef.current) {
+    const fresher = pendingRef.current ? v.version > versionRef.current : v.version >= versionRef.current;
+    if (fresher) {
       versionRef.current = v.version;
-      setView(v);
+      if (v.you) youRef.current = v.you;
+      setView(v.you ? v : { ...v, you: youRef.current });
     }
   }, []);
 
@@ -38,13 +43,15 @@ export function Room({ code }: { code: string }) {
       .catch((e: ApiError) => setFatal(e.status === 404 ? "Room not found" : e.message));
   }, [name, code, accept]);
 
-  // Live updates: realtime ping → refetch our own view. Polling is a safety net.
+  // Live updates: the realtime message carries the new board (no refetch needed);
+  // hidden-info games send only a version, so we fetch our own view. Polling is a safety net.
   useEffect(() => {
     if (!view) return;
     const ch = realtime()
       .channel(`room:${code}`)
       .on("broadcast", { event: "update" }, ({ payload }) => {
-        if ((payload?.version ?? Infinity) > versionRef.current) refresh();
+        if (payload?.view) accept(payload.view as RoomView);
+        else if ((payload?.version ?? Infinity) > versionRef.current) refresh();
       })
       .subscribe();
     const poll = setInterval(() => document.visibilityState === "visible" && refresh(), 5000);
@@ -58,12 +65,24 @@ export function Room({ code }: { code: string }) {
   }, [!!view, code, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function move(m: unknown) {
-    if (!view) return;
+    if (!view?.state || !view.you || pendingRef.current) return;
     setError("");
+    // Optimistic: run the same pure engine locally so the mark appears instantly.
+    // The server still decides; its answer replaces this.
+    const engine = getEngine(view.game);
+    if (engine && !engine.hiddenInfo && engine.validate(view.state, m, view.you.id) === null) {
+      const state = engine.apply(view.state, m, view.you.id);
+      setView({ ...view, state, turn: engine.turn(state), winner: engine.winner(state) });
+    }
+    pendingRef.current = true;
     try {
-      accept(await api(`/rooms/${code}/move`, { move: m, version: view.version }));
+      const next = await api(`/rooms/${code}/move`, { move: m, version: view.version });
+      pendingRef.current = false;
+      accept(next);
     } catch (e) {
+      pendingRef.current = false;
       setError((e as Error).message);
+      setView(view); // undo the optimistic mark
       refresh();
     }
   }

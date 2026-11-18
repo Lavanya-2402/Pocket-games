@@ -50,9 +50,17 @@ export async function parseBody<T>(req: Request, schema: z.ZodType<T>): Promise<
   return parsed.data;
 }
 
-export async function broadcast(code: string, version: number) {
-  const ch = db().channel(`room:${code}`);
-  const res = await ch.httpSend("update", { version });
+/**
+ * Ping everyone in the room. For games with no hidden info, the public view rides
+ * along so phones can update instantly without a refetch round trip.
+ */
+export async function broadcast(room: RoomRow, players: PlayerRow[]) {
+  const engine = getEngine(room.game)!;
+  const payload = engine.hiddenInfo
+    ? { version: room.version }
+    : { version: room.version, view: roomView(room, players, null) };
+  const ch = db().channel(`room:${room.code}`);
+  const res = await ch.httpSend("update", payload);
   if (!res.success) console.error("broadcast failed", res);
   await db().removeChannel(ch);
 }
@@ -71,22 +79,20 @@ export interface PlayerRow {
   seat: number | null;
 }
 
+/** Room + players in a single round trip. */
 export async function loadRoom(code: string) {
-  const { data: room, error } = await db()
+  const { data, error } = await db()
     .from("rooms")
-    .select("code, game, state, version")
+    .select("code, game, state, version, room_players(player_id, secret, name, seat, joined_at)")
     .eq("code", code)
-    .maybeSingle<RoomRow>();
+    .maybeSingle<RoomRow & { room_players: (PlayerRow & { joined_at: string })[] }>();
   if (error) throw error;
-  if (!room) throw new HttpError(404, "Room not found");
-  const { data: players, error: pErr } = await db()
-    .from("room_players")
-    .select("player_id, secret, name, seat")
-    .eq("room_code", code)
-    .order("joined_at")
-    .returns<PlayerRow[]>();
-  if (pErr) throw pErr;
-  return { room, players };
+  if (!data) throw new HttpError(404, "Room not found");
+  const { room_players, ...room } = data;
+  const players = room_players
+    .sort((a, b) => a.joined_at.localeCompare(b.joined_at))
+    .map((p) => ({ player_id: p.player_id, secret: p.secret, name: p.name, seat: p.seat }));
+  return { room: room as RoomRow, players };
 }
 
 /** Throws unless the caller's secret matches. Returns their row, or null if they never joined. */

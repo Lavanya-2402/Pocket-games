@@ -29,9 +29,14 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/move">) 
 
     const state = engine.apply(room.state, parsed.data, who.id);
     const version = await saveState(code, room.version, state);
-    await db().from("moves").insert({ room_code: code, player_id: who.id, move: parsed.data, version });
-    await broadcast(code, version);
+    const next = { ...room, state, version };
+    // Log and notify in parallel — one round trip instead of two.
+    await Promise.all([
+      db().from("moves").insert({ room_code: code, player_id: who.id, move: parsed.data, version })
+        .then(({ error }) => error && console.error("move log failed", error)),
+      broadcast(next, players),
+    ]);
 
-    return Response.json(roomView({ ...room, state, version }, players, who.id));
+    return Response.json(roomView(next, players, who.id));
   });
 }

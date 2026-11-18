@@ -10,6 +10,8 @@ export type Outcome = string | "draw" | null;
 export interface GameEngine<S, M> {
   id: string;
   name: string;
+  /** True if viewFor hides anything (cards, ships, bids). Disables state-in-broadcast. */
+  hiddenInfo?: boolean;
   moveSchema: ZodType<M>;
   init(players: Players, seed: number): S;
   /** Returns an error message, or null if the move is legal. */

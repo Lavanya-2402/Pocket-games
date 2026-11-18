@@ -19,7 +19,8 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/rematch"
     const prev = (room.state as { players: [string, string] }).players;
     const state = engine.init([prev[1], prev[0]], Math.floor(Math.random() * 2 ** 31));
     const version = await saveState(code, room.version, state);
-    await broadcast(code, version);
-    return Response.json(roomView({ ...room, state, version }, players, who.id));
+    const next = { ...room, state, version };
+    await broadcast(next, players);
+    return Response.json(roomView(next, players, who.id));
   });
 }
