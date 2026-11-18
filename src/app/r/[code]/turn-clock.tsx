@@ -3,13 +3,41 @@
 import { useEffect, useState } from "react";
 
 /** Re-render every `ms` while mounted. */
-function useNow(ms: number) {
+export function useNow(ms: number) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), ms);
     return () => clearInterval(t);
   }, [ms]);
   return now;
+}
+
+/**
+ * Shown while the opponent has closed the room. If their clock is running, counts
+ * down to the forfeit (their remaining missed turns × turn length).
+ */
+export function AwayBanner({
+  name, forfeitAt, offset,
+}: {
+  name: string;
+  forfeitAt: number | null;
+  offset: number;
+}) {
+  const now = useNow(500) + offset;
+  const secs = forfeitAt === null ? null : Math.max(0, Math.ceil((forfeitAt - now) / 1000));
+  return (
+    <div role="status" className="rise flex items-start gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
+      <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-muted" />
+      <span>
+        <b>{name} left the room.</b>{" "}
+        {secs === null
+          ? "If they don't come back, their clock will run out on their next turn."
+          : secs > 0
+            ? <>They forfeit in <b className="tabular-nums">{secs}s</b> unless they come back.</>
+            : "Waiting for the forfeit…"}
+      </span>
+    </div>
+  );
 }
 
 /**

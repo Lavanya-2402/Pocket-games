@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError, getName, realtime, setName, type RoomView } from "@/lib/client";
+import { api, ApiError, getName, me, realtime, setName, type RoomView } from "@/lib/client";
+import { missLimit } from "@/games/runner";
 import { HowToPlayButton } from "@/components/how-to-play";
 import { getEngine } from "@/games";
 import type { BidTacToeView } from "@/games/bidtactoe";
@@ -13,7 +14,7 @@ import { BidTacToeBoard } from "./bidtactoe-board";
 import { Connect4Board } from "./connect4-board";
 import { DuelBoard } from "./duel-board";
 import { TicTacToeBoard } from "./tictactoe-board";
-import { TurnClock } from "./turn-clock";
+import { AwayBanner, TurnClock } from "./turn-clock";
 
 const SIMULTANEOUS = new Set(["bidtactoe", "duel"]);
 
@@ -26,6 +27,9 @@ export function Room({ code }: { code: string }) {
   const youRef = useRef<RoomView["you"]>(null);
   const pendingRef = useRef(false); // a move is in flight; don't let stale data undo it
   const [offset, setOffset] = useState(0); // server clock − phone clock
+  const [online, setOnline] = useState<Set<string>>(new Set()); // player ids with the room open
+  const [linkUp, setLinkUp] = useState(true); // our own realtime connection
+  const [presenceReady, setPresenceReady] = useState(false); // got the first presence list
 
   const accept = useCallback((v: RoomView) => {
     const fresher = pendingRef.current ? v.version > versionRef.current : v.version >= versionRef.current;
@@ -58,22 +62,41 @@ export function Room({ code }: { code: string }) {
 
   // Live updates: the realtime message carries the new board (no refetch needed);
   // hidden-info games send only a version, so we fetch our own view. Polling is a safety net.
+  // Presence (who has the room open) also rides on this channel.
   useEffect(() => {
     if (!view) return;
+    const myId = me().id;
     const ch = realtime()
-      .channel(`room:${code}`)
+      .channel(`room:${code}`, { config: { presence: { key: myId } } })
       .on("broadcast", { event: "update" }, ({ payload }) => {
         if (payload?.view) accept(payload.view as RoomView);
         else if ((payload?.version ?? Infinity) > versionRef.current) refresh();
       })
-      .subscribe();
+      .on("presence", { event: "sync" }, () => {
+        setOnline(new Set(Object.keys(ch.presenceState())));
+        setPresenceReady(true);
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setLinkUp(true);
+          ch.track({ at: Date.now() });
+          refresh(); // catch up on anything missed while disconnected
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          setLinkUp(false);
+        }
+      });
     const poll = setInterval(() => document.visibilityState === "visible" && refresh(), 5000);
     const onVis = () => document.visibilityState === "visible" && refresh();
+    const onNet = () => setLinkUp(navigator.onLine);
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("online", onNet);
+    window.addEventListener("offline", onNet);
     return () => {
       realtime().removeChannel(ch);
       clearInterval(poll);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("online", onNet);
+      window.removeEventListener("offline", onNet);
     };
   }, [!!view, code, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -183,6 +206,10 @@ export function Room({ code }: { code: string }) {
   const myId = view.you?.id;
   const isPlayer = view.you?.seat !== null && view.you?.seat !== undefined;
   const opponent = view.players.find((p) => p.id !== myId);
+  const away = presenceReady && view.state && !view.winner
+    ? view.players.filter((p) => p.id !== myId && !online.has(p.id))
+    : [];
+  const isOnline = (id?: string) => !!id && (id === myId || !presenceReady || online.has(id));
 
   let status: string;
   if (!view.state) status = "Waiting for a friend to join…";
@@ -221,7 +248,13 @@ export function Room({ code }: { code: string }) {
               <div className={`font-display text-xl font-extrabold ${s === 0 ? "text-x" : "text-o"}`}>
                 {view.state ? markFor(view, p?.id) : s === 0 ? "P1" : "P2"}
               </div>
-              <div className="truncate text-sm">
+              <div className="flex items-center gap-1.5 truncate text-sm">
+                {p && (
+                  <span
+                    aria-label={isOnline(p.id) ? "online" : "offline"}
+                    className={`size-2 shrink-0 rounded-full ${isOnline(p.id) ? "bg-o" : "bg-line ring-1 ring-muted"}`}
+                  />
+                )}
                 {p ? p.name : <span className="text-muted">waiting…</span>}
                 {p?.id === myId && <span className="text-muted"> (you)</span>}
               </div>
@@ -247,6 +280,15 @@ export function Room({ code }: { code: string }) {
           label={clockLabel(view, myId)}
         />
       )}
+
+      {!linkUp && (
+        <p role="status" className="rounded-2xl bg-x/15 px-4 py-3 text-center text-sm">
+          Connection lost — reconnecting…
+        </p>
+      )}
+      {away.map((p) => (
+        <AwayBanner key={p.id} name={p.name} forfeitAt={forfeitAt(view, p.id)} offset={offset} />
+      ))}
 
       {!view.state && (
         <div className="rounded-2xl border border-dashed border-line p-5 text-center text-muted">
@@ -305,6 +347,14 @@ export function Room({ code }: { code: string }) {
 
 function nameOf(v: RoomView, id: string | null) {
   return v.players.find((p) => p.id === id)?.name ?? "Someone";
+}
+
+/** When an absent player will forfeit if their clock keeps running out, or null if it isn't running. */
+function forfeitAt(v: RoomView, id: string) {
+  const { deadline, limit, waitingOn, misses } = v.clock;
+  if (deadline === null || !waitingOn.includes(id)) return null;
+  const left = missLimit(limit) - (misses[id] ?? 0) - 1; // turns after this one
+  return deadline + left * limit * 1000;
 }
 
 function clockLabel(v: RoomView, myId?: string) {
