@@ -97,7 +97,17 @@ export default function Home() {
             <span className="text-x">✕</span> <span className="opacity-80">100</span>
           </span>
         </button>
-        <p className="text-sm text-muted">More games coming: Simultaneous Duel.</p>
+        <button
+          onClick={() => create("duel")}
+          disabled={busy}
+          className="flex h-20 items-center justify-between rounded-2xl bg-accent px-5 text-left text-accent-ink active:scale-[0.98] transition disabled:opacity-60"
+        >
+          <span>
+            <span className="block font-display text-2xl font-semibold">Duel</span>
+            <span className="block text-xs opacity-70">Attack, defend or charge — at the same time</span>
+          </span>
+          <span aria-hidden className="text-2xl">⚔️</span>
+        </button>
       </section>
 
       <form onSubmit={join} className="flex flex-col gap-3">

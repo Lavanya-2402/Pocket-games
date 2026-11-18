@@ -6,7 +6,11 @@ import { api, ApiError, getName, realtime, setName, type RoomView } from "@/lib/
 import { getEngine } from "@/games";
 import type { BidTacToeView } from "@/games/bidtactoe";
 import type { Connect4State } from "@/games/connect4";
+import type { DuelView } from "@/games/duel";
 import { BidTacToeBoard } from "./bidtactoe-board";
+import { DuelBoard } from "./duel-board";
+
+const SIMULTANEOUS = new Set(["bidtactoe", "duel"]);
 import type { TicTacToeState } from "@/games/tictactoe";
 import { Connect4Board } from "./connect4-board";
 import { TicTacToeBoard } from "./tictactoe-board";
@@ -162,10 +166,11 @@ export function Room({ code }: { code: string }) {
   if (!view.state) status = "Waiting for a friend to join…";
   else if (view.winner === "draw") status = "It's a draw";
   else if (view.winner) status = view.winner === myId ? "You win! 🎉" : `${nameOf(view, view.winner)} wins`;
-  else if (view.game === "bidtactoe") {
-    const s = view.state as BidTacToeView;
+  else if (SIMULTANEOUS.has(view.game)) {
+    const s = view.state as { pending: unknown[]; round: number };
     const mine = isPlayer ? s.pending[view.you!.seat!] : null;
-    status = !isPlayer ? `Round ${s.round}: bidding…` : mine ? "Bid locked" : `Round ${s.round}: place your bid`;
+    const verb = view.game === "duel" ? "pick your move" : "place your bid";
+    status = !isPlayer ? `Round ${s.round}: choosing…` : mine ? "Locked in" : `Round ${s.round}: ${verb}`;
   } else if (view.turn === myId) status = "Your turn";
   else status = isPlayer ? `${opponent?.name ?? "Opponent"}'s turn` : `${nameOf(view, view.turn)}'s turn`;
 
@@ -181,8 +186,8 @@ export function Room({ code }: { code: string }) {
         </button>
       </header>
 
-      {/* Bid-Tac-Toe shows its own player cards with coins. */}
-      {!(view.game === "bidtactoe" && view.state) && <div className="grid grid-cols-2 gap-3">
+      {/* Simultaneous games show their own player cards (coins / HP). */}
+      {!(SIMULTANEOUS.has(view.game) && view.state) && <div className="grid grid-cols-2 gap-3">
         {[0, 1].map((s) => {
           const p = seat(s);
           const active = p && view.turn === p.id;
@@ -225,6 +230,14 @@ export function Room({ code }: { code: string }) {
           mySeat={view.you?.seat ?? null}
           names={[seat(0)?.name ?? "P1", seat(1)?.name ?? "P2"]}
           onBid={(bid, cell) => move({ bid, cell })}
+        />
+      )}
+      {view.state != null && view.game === "duel" && (
+        <DuelBoard
+          state={view.state as DuelView}
+          mySeat={view.you?.seat ?? null}
+          names={[seat(0)?.name ?? "P1", seat(1)?.name ?? "P2"]}
+          onAct={(action) => move({ action })}
         />
       )}
       {view.state != null && view.game === "connect4" && (
