@@ -16,13 +16,13 @@ export default function Home() {
 
   const nameOk = name.trim().length > 0;
 
-  async function create() {
+  async function create(game: string) {
     if (!nameOk) return setError("Enter your name first");
     setBusy(true);
     setError("");
     setName(name);
     try {
-      const { code } = await api<{ code: string }>("/rooms", { game: "tictactoe", name: name.trim() });
+      const { code } = await api<{ code: string }>("/rooms", { game, name: name.trim() });
       router.push(`/r/${code}`);
     } catch (e) {
       setError((e as Error).message);
@@ -62,7 +62,7 @@ export default function Home() {
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted">Start a game</h2>
         <button
-          onClick={create}
+          onClick={() => create("tictactoe")}
           disabled={busy}
           className="flex h-20 items-center justify-between rounded-2xl bg-accent px-5 text-accent-ink active:scale-[0.98] transition disabled:opacity-60"
         >
@@ -71,7 +71,20 @@ export default function Home() {
             <span className="text-x">✕</span> <span className="text-o">◯</span>
           </span>
         </button>
-        <p className="text-sm text-muted">More games coming: Connect Four, Bid-Tac-Toe, Simultaneous Duel.</p>
+        <button
+          onClick={() => create("connect4")}
+          disabled={busy}
+          className="flex h-20 items-center justify-between rounded-2xl bg-accent px-5 text-accent-ink active:scale-[0.98] transition disabled:opacity-60"
+        >
+          <span className="font-display text-2xl font-semibold">Connect Four</span>
+          <span aria-hidden className="flex gap-1">
+            <span className="size-5 rounded-full bg-x" />
+            <span className="size-5 rounded-full bg-o" />
+            <span className="size-5 rounded-full bg-x" />
+            <span className="size-5 rounded-full bg-o" />
+          </span>
+        </button>
+        <p className="text-sm text-muted">More games coming: Bid-Tac-Toe, Simultaneous Duel.</p>
       </section>
 
       <form onSubmit={join} className="flex flex-col gap-3">

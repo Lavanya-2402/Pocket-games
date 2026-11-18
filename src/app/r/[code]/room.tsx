@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, getName, realtime, setName, type RoomView } from "@/lib/client";
 import { getEngine } from "@/games";
+import type { Connect4State } from "@/games/connect4";
+import type { TicTacToeState } from "@/games/tictactoe";
+import { Connect4Board } from "./connect4-board";
 import { TicTacToeBoard } from "./tictactoe-board";
 
 export function Room({ code }: { code: string }) {
@@ -204,10 +207,16 @@ export function Room({ code }: { code: string }) {
 
       {view.state != null && view.game === "tictactoe" && (
         <TicTacToeBoard
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          state={view.state as any}
+          state={view.state as TicTacToeState}
           canMove={isPlayer && view.turn === myId}
           onMove={(cell) => move({ cell })}
+        />
+      )}
+      {view.state != null && view.game === "connect4" && (
+        <Connect4Board
+          state={view.state as Connect4State}
+          canMove={isPlayer && view.turn === myId}
+          onMove={(col) => move({ col })}
         />
       )}
 
@@ -233,5 +242,7 @@ function nameOf(v: RoomView, id: string | null) {
 function markFor(v: RoomView, id?: string) {
   const players = (v.state as { players?: string[] } | null)?.players;
   const i = id ? players?.indexOf(id) : -1;
-  return i === 0 ? "✕" : i === 1 ? "◯" : "–";
+  if (i !== 0 && i !== 1) return "–";
+  if (v.game === "connect4") return "●";
+  return i === 0 ? "✕" : "◯";
 }
