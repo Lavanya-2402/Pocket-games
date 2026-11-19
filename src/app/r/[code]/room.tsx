@@ -290,6 +290,12 @@ export function Room({ code }: { code: string }) {
   const myId = view.you?.id;
   const isPlayer = view.you?.seat !== null && view.you?.seat !== undefined;
   const opponent = view.players.find((p) => p.id !== myId);
+  // The game keeps its own player order (index 0 moves first), which flips on every
+  // rematch. Room seats never change. Boards work in game order, so translate here.
+  const gameOrder = ((view.state as { players?: string[] } | null)?.players ?? []) as string[];
+  const roleOf = (id?: string) => (id ? gameOrder.indexOf(id) : -1);
+  const gameSeat = myId && roleOf(myId) !== -1 ? roleOf(myId) : null;
+  const gameNames: [string, string] = [nameOf(view, gameOrder[0] ?? null), nameOf(view, gameOrder[1] ?? null)];
   const away = presenceReady && view.state && !view.winner
     ? view.players.filter((p) => p.id !== myId && !online.has(p.id))
     : [];
@@ -301,12 +307,12 @@ export function Room({ code }: { code: string }) {
   else if (view.winner) status = view.winner === myId ? "You win! 🎉" : `${nameOf(view, view.winner)} wins`;
   else if (SIMULTANEOUS.has(view.game)) {
     const s = view.state as { pending: unknown[]; round: number };
-    const mine = isPlayer ? s.pending[view.you!.seat!] : null;
+    const mine = gameSeat !== null ? s.pending[gameSeat] : null;
     const verb = view.game === "duel" ? "pick your move" : "place your bid";
     status = !isPlayer ? `Round ${s.round}: choosing…` : mine ? "Locked in" : `Round ${s.round}: ${verb}`;
   } else if (view.game === "seabattle" && (view.state as SeaBattleView).phase === "place") {
     const ready = (view.state as SeaBattleView).ready;
-    status = !isPlayer ? "Placing ships…" : ready[view.you!.seat!] ? "Ships ready" : "Place your ships";
+    status = gameSeat === null ? "Placing ships…" : ready[gameSeat] ? "Ships ready" : "Place your ships";
   } else if (view.turn === myId) status = view.game === "seabattle" ? "Your shot" : "Your turn";
   else status = isPlayer ? `${opponent?.name ?? "Opponent"}'s turn` : `${nameOf(view, view.turn)}'s turn`;
 
@@ -344,7 +350,7 @@ export function Room({ code }: { code: string }) {
               key={s}
               className={`rounded-2xl border px-4 py-3 transition ${active ? "border-ink bg-surface" : "border-line"}`}
             >
-              <div className={`font-display text-xl font-extrabold ${s === 0 ? "text-x" : "text-o"}`}>
+              <div className={`font-display text-xl font-extrabold ${roleOf(p?.id) === 1 ? "text-o" : "text-x"}`}>
                 {view.state ? markFor(view, p?.id) : s === 0 ? "P1" : "P2"}
               </div>
               <div className="flex items-center gap-1.5 truncate text-sm">
@@ -406,32 +412,32 @@ export function Room({ code }: { code: string }) {
       {view.state != null && view.game === "bidtactoe" && (
         <BidTacToeBoard
           state={view.state as BidTacToeView}
-          mySeat={view.you?.seat ?? null}
-          names={[seat(0)?.name ?? "P1", seat(1)?.name ?? "P2"]}
+          mySeat={gameSeat}
+          names={gameNames}
           onBid={(bid, cell) => move({ bid, cell })}
         />
       )}
       {view.state != null && view.game === "duel" && (
         <DuelBoard
           state={view.state as DuelView}
-          mySeat={view.you?.seat ?? null}
-          names={[seat(0)?.name ?? "P1", seat(1)?.name ?? "P2"]}
+          mySeat={gameSeat}
+          names={gameNames}
           onAct={(action) => move({ action })}
         />
       )}
       {view.state != null && view.game === "seabattle" && (
         <SeaBattleBoard
           state={view.state as SeaBattleView}
-          mySeat={view.you?.seat ?? null}
-          names={[seat(0)?.name ?? "P1", seat(1)?.name ?? "P2"]}
+          mySeat={gameSeat}
+          names={gameNames}
           onMove={move}
         />
       )}
       {view.state != null && view.game === "colorrush" && (
         <ColorRushBoard
           state={view.state as ColorRushView}
-          mySeat={view.you?.seat ?? null}
-          names={[seat(0)?.name ?? "P1", seat(1)?.name ?? "P2"]}
+          mySeat={gameSeat}
+          names={gameNames}
           onMove={move}
         />
       )}
