@@ -10,8 +10,8 @@ type Seat = 0 | 1;
 const HEX: Record<Color, string> = {
   coral: "var(--x)",
   teal: "var(--o)",
-  gold: "#d9a21b",
-  violet: "#7b61d1",
+  gold: "var(--gold)",
+  violet: "var(--violet)",
 };
 const LABEL: Record<Color, string> = { coral: "Coral", teal: "Teal", gold: "Gold", violet: "Violet" };
 const RAINBOW = `conic-gradient(${HEX.coral} 0 25%, ${HEX.gold} 0 50%, ${HEX.teal} 0 75%, ${HEX.violet} 0)`;

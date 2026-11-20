@@ -26,6 +26,8 @@ export class HttpError extends Error {
 export function handle(fn: () => Promise<Response>): Promise<Response> {
   return fn().catch((e) => {
     if (e instanceof HttpError) return Response.json({ error: e.message }, { status: e.status });
+    // Next.js signals things like "this route is dynamic" by throwing; those must pass through.
+    if (typeof e === "object" && e !== null && "digest" in e) throw e;
     console.error(e);
     return Response.json({ error: "Server error" }, { status: 500 });
   });

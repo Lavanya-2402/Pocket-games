@@ -20,10 +20,14 @@ export const viewport: Viewport = {
   ],
 };
 
+const THEME_BOOT = `try{var d=document.documentElement,t=localStorage.getItem("pg.theme"),s=localStorage.getItem("pg.skin");if(t==="light"||t==="dark")d.dataset.theme=t;if(s)d.dataset.skin=s}catch(e){}`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} h-full antialiased`}>
+    <html lang="en" className={`${display.variable} ${body.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-dvh flex flex-col font-sans">
+        {/* Runs before anything is drawn, so a saved theme never flashes the wrong colours. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <main className="w-full flex-1 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
           {children}
         </main>

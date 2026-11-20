@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { AVATARS, COLOR_KEYS, COLORS, type Profile } from "@/lib/profile";
 import { changePassword, login, logout, register, resetPassword, saveProfile, useSession } from "@/lib/session";
+import { isMuted, play, setMuted } from "@/lib/sound";
+import { getSkin, getTheme, setSkin, setTheme, SKINS, THEMES, type Skin, type Theme } from "@/lib/theme";
 import { Avatar, ghostBtn, inputClass, primaryBtn, Sheet } from "./ui";
 
-export type AccountTab = "profile" | "account";
+export type AccountTab = "profile" | "account" | "settings";
 
 /** Edit how you look (everyone), and sign up / log in / reset password (accounts). */
 export function AccountSheet({
@@ -21,22 +23,22 @@ export function AccountSheet({
 }) {
   const { username } = useSession();
   return (
-    <Sheet open={open} onClose={onClose} title={tab === "profile" ? "Your profile" : "Account"}>
-      <div className="grid grid-cols-2 gap-1 rounded-2xl bg-bg p-1 text-sm font-semibold">
-        {(["profile", "account"] as const).map((t) => (
+    <Sheet open={open} onClose={onClose} title={tab === "profile" ? "Your profile" : tab === "account" ? "Account" : "Settings"}>
+      <div className="grid grid-cols-3 gap-1 rounded-2xl bg-bg p-1 text-sm font-semibold">
+        {(["profile", "account", "settings"] as const).map((t) => (
           <button
             key={t}
             onClick={() => onTab(t)}
             aria-pressed={tab === t}
-            className={`h-10 rounded-xl capitalize ${tab === t ? "bg-surface shadow-sm" : "text-muted"}`}
+            className={`h-10 truncate rounded-xl px-1 capitalize ${tab === t ? "bg-surface shadow-sm" : "text-muted"}`}
           >
             {t === "account" && username ? `@${username}` : t}
           </button>
         ))}
       </div>
-      {tab === "profile"
-        ? <ProfileForm prompt={prompt} onSaved={() => (onSaved ? onSaved() : onClose())} />
-        : <AccountForm onDone={onClose} />}
+      {tab === "profile" && <ProfileForm prompt={prompt} onSaved={() => (onSaved ? onSaved() : onClose())} />}
+      {tab === "account" && <AccountForm onDone={onClose} />}
+      {tab === "settings" && <SettingsForm />}
     </Sheet>
   );
 }
@@ -116,6 +118,80 @@ function ProfileForm({ prompt, onSaved }: { prompt?: string; onSaved: () => void
       {error && <p role="alert" className="text-sm text-x">{error}</p>}
       <button disabled={busy} className={primaryBtn}>{prompt ? "Save & play" : "Save"}</button>
     </form>
+  );
+}
+
+/** Look and sound, saved on this phone. Changes apply straight away. */
+function SettingsForm() {
+  const [theme, setThemeState] = useState<Theme>(() => getTheme());
+  const [skin, setSkinState] = useState<Skin>(() => getSkin());
+  const [sound, setSound] = useState(() => !isMuted());
+  const label = "mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted";
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <p className={label}>Theme</p>
+        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-bg p-1">
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              aria-pressed={theme === t.id}
+              onClick={() => {
+                setTheme(t.id);
+                setThemeState(t.id);
+              }}
+              className={`h-11 rounded-xl text-sm font-semibold ${theme === t.id ? "bg-surface shadow-sm" : "text-muted"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-muted">Auto follows your phone&apos;s light or dark setting.</p>
+      </div>
+
+      <div>
+        <p className={label}>Board and card colours</p>
+        <div className="grid grid-cols-5 gap-2">
+          {SKINS.map((k) => (
+            <button
+              key={k.id}
+              aria-pressed={skin === k.id}
+              aria-label={`${k.label} colours`}
+              onClick={() => {
+                setSkin(k.id);
+                setSkinState(k.id);
+              }}
+              className={`flex flex-col items-center gap-1.5 rounded-2xl border-2 py-2 text-xs font-semibold ${skin === k.id ? "border-ink" : "border-line"}`}
+            >
+              <span className="flex -space-x-1.5">
+                <span className="size-6 rounded-full ring-2 ring-surface" style={{ background: k.x }} />
+                <span className="size-6 rounded-full ring-2 ring-surface" style={{ background: k.o }} />
+              </span>
+              {k.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button
+        role="switch"
+        aria-checked={sound}
+        onClick={() => {
+          setMuted(sound);
+          setSound(!sound);
+          if (!sound) play("tap");
+        }}
+        className="flex items-center gap-3 rounded-2xl border border-line px-3 py-2.5 text-left"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{sound ? "🔊" : "🔇"} Sound effects</span>
+          <span className="block text-xs text-muted">Taps, turns, wins and chat pings.</span>
+        </span>
+        <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${sound ? "bg-o" : "bg-line"}`}>
+          <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${sound ? "left-[1.375rem]" : "left-0.5"}`} />
+        </span>
+      </button>
+    </div>
   );
 }
 
