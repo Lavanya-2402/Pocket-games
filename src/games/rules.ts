@@ -8,6 +8,9 @@ import { PAIRS } from "./memory";
 import { MINES, TARGET as MINE_TARGET } from "./minefield";
 import { NEED, SIZE as FIVE_SIZE } from "./five";
 import { FLEET, SHIP_NAMES, SIZE } from "./seabattle";
+import { TARGET as GREEDY_TARGET } from "./greedy";
+import { LAST as CLIMB_LAST } from "./climb";
+import { ROLLS as YACHT_ROLLS } from "./yacht";
 
 export interface Rules {
   title: string;
@@ -237,5 +240,70 @@ export const RULES: Record<string, Rules> = {
       "Save Rainbows for when you have no match — they can't be blocked.",
       "When the next player is down to their last card, hit them with +2 or +4.",
     ],
+  },
+  yacht: {
+    title: "Yacht Dice",
+    tagline: "Five dice, three rolls, twelve boxes.",
+    goal: "Finish with the highest total on your card. For 2 to 4 players.",
+    steps: [
+      `On your turn, roll all five dice. You may roll up to ${YACHT_ROLLS} times.`,
+      "Between rolls, tap the dice you want to keep; the rest are rolled again.",
+      "Then tap one empty box on your card to write the score there. Every box is used exactly once.",
+      "Ones to Sixes: add up the dice showing that number.",
+      "Full house (three alike and two alike) and Choice: add up all five dice. Four alike: add up those four.",
+      "Low run (1-2-3-4-5) and High run (2-3-4-5-6) score 30. Yacht — all five the same — scores 50.",
+      "If your dice don't fit the box you pick, it scores 0. The game ends when every card is full.",
+    ],
+    tips: [
+      "Nothing useful? Put a zero in Ones or Yacht rather than waste a big box.",
+      "Tap a name above the card to look at someone else's card.",
+    ],
+  },
+  greedy: {
+    title: "Greedy Dice",
+    tagline: "Roll again, or bank it?",
+    goal: `Be the first to bank ${GREEDY_TARGET} points. For 2 to 4 players.`,
+    steps: [
+      "On your turn, roll two dice. Their total goes into the pot.",
+      "Roll again to grow the pot, as often as you dare.",
+      "Tap Bank to add the pot to your score and end your turn.",
+      "Roll a 1 on either die and the pot is lost — your turn ends with nothing.",
+      "Roll two 1s and you lose everything you had banked as well.",
+    ],
+    tips: [
+      "Roughly one roll in three has a 1 in it. A pot of about 20 is usually worth banking.",
+      "Far behind? Then it is worth taking bigger risks.",
+    ],
+  },
+  ludo: {
+    title: "Ludo",
+    tagline: "Race your pieces home.",
+    goal: "Be the first to bring all your pieces round the board and home. For 2 to 4 players.",
+    steps: [
+      "Tap Roll. You need a 6 to bring a piece out of your yard onto your start square.",
+      "Pieces move clockwise by the number rolled. If more than one can move, tap the piece you want.",
+      "Land on another player's piece and it goes back to their yard — and you roll again.",
+      "Pieces on a start square or a ★ square are safe and can't be sent back.",
+      "A 6 earns another roll, and so does bringing a piece home. Three 6s in a row lose the turn.",
+      "After a full lap a piece turns up its own coloured column. It needs the exact number to reach home.",
+      "Quick game (chosen when you create the room) uses two pieces each instead of four.",
+    ],
+    tips: [
+      "Get pieces out early — one piece on its own is easy to hunt down.",
+      "Stopping on a ★ is often better than running ahead into danger.",
+    ],
+  },
+  climb: {
+    title: "Climb & Slide",
+    tagline: "Ropes up, slides down.",
+    goal: `Be the first to reach square ${CLIMB_LAST}. For 2 to 4 players.`,
+    steps: [
+      "Tap Roll and your piece moves that many squares.",
+      "Land on a ▲ square and you climb the rope to the higher square shown.",
+      "Land on a ▼ square and you slide down to the lower square shown.",
+      "Roll a 6 and you roll again.",
+      "You don't need an exact roll to finish.",
+    ],
+    tips: ["It is all luck — perfect for playing with younger children.", "The slide on 62 is the cruel one."],
   },
 };

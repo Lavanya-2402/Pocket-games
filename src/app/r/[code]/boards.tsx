@@ -16,6 +16,10 @@ import { MinefieldBoard } from "./minefield-board";
 import { SeaBattleBoard } from "./seabattle-board";
 import { TerritoryBoard } from "./territory-board";
 import { TicTacToeBoard } from "./tictactoe-board";
+import { YachtBoard } from "./yacht-board";
+import { GreedyBoard } from "./greedy-board";
+import { LudoBoard } from "./ludo-board";
+import { ClimbBoard } from "./climb-board";
 
 /** What every game board receives. Seats are game seats (index into state.players). */
 export interface BoardProps {
@@ -110,4 +114,8 @@ export const GAME_UI: Record<string, GameUI> = {
     Board: ColorRushBoard,
     fit: WIDE,
   },
+  yacht: { Board: YachtBoard, fit: WIDE },
+  greedy: { Board: GreedyBoard, fit: WIDE, turnWord: "roll" },
+  ludo: { Board: LudoBoard, fit: "fit-tall" },
+  climb: { Board: ClimbBoard, fit: "fit-tall", turnWord: "roll" },
 };

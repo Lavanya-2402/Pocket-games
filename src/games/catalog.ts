@@ -23,6 +23,7 @@ export const GROUPS: GameGroup[] = [
   { id: "mind", name: "Mind games", blurb: "Secret picks, revealed together", color: "var(--g-mind)" },
   { id: "hunt", name: "Hide & hunt", blurb: "Find what the others are hiding", color: "var(--g-hunt)" },
   { id: "cards", name: "Cards", blurb: "Empty your hand first", color: "var(--g-cards)" },
+  { id: "dice", name: "Dice", blurb: "Roll, risk it, race", color: "var(--g-dice)" },
 ];
 
 export const CATALOG: GameEntry[] = [
@@ -43,4 +44,8 @@ export const CATALOG: GameEntry[] = [
   { id: "memory", name: "Memory Match", tagline: "Flip and pair up", icon: "🧠", group: "hunt" },
 
   { id: "colorrush", name: "Color Rush", tagline: "Match colours, with house rules", icon: "🃏", group: "cards" },
+  { id: "yacht", name: "Yacht Dice", tagline: "Five dice, twelve boxes to fill", icon: "🎲", group: "dice" },
+  { id: "greedy", name: "Greedy Dice", tagline: "Roll again, or bank it?", icon: "🤑", group: "dice" },
+  { id: "ludo", name: "Ludo", tagline: "Race your pieces home", icon: "🏠", group: "dice" },
+  { id: "climb", name: "Climb & Slide", tagline: "Ropes up, slides down", icon: "🪜", group: "dice" },
 ];

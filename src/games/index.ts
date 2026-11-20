@@ -12,6 +12,10 @@ import { minefield } from "./minefield";
 import { seaBattle } from "./seabattle";
 import { territory } from "./territory";
 import { ticTacToe } from "./tictactoe";
+import { yacht } from "./yacht";
+import { greedy } from "./greedy";
+import { ludo } from "./ludo";
+import { climb } from "./climb";
 import type { AnyEngine } from "./types";
 
 export const GAMES: Record<string, AnyEngine> = {
@@ -29,6 +33,10 @@ export const GAMES: Record<string, AnyEngine> = {
   [memory.id]: memory,
   [minefield.id]: minefield,
   [liarsDice.id]: liarsDice,
+  [yacht.id]: yacht,
+  [greedy.id]: greedy,
+  [ludo.id]: ludo,
+  [climb.id]: climb,
 };
 
 export function getEngine(id: string): AnyEngine | undefined {
