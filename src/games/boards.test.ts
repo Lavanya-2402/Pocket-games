@@ -91,8 +91,10 @@ describe("gravity flip", () => {
     }
     // Bottom row: A A A . . . B(stack of 3 in col 6)
     const turned = rotate(s.board);
-    // Clockwise: the bottom row becomes the left column, already resting on the floor.
-    expect([turned[G - 1][0], turned[G - 2][0], turned[G - 3][0]]).toEqual([0, 0, 0]);
+    // Clockwise: the old bottom row becomes the left column and the old right-hand stack
+    // becomes the new bottom row. So the left column, bottom-up, is B then A, A, A.
+    expect([G - 1, G - 2, G - 3, G - 4].map((r) => turned[r][0])).toEqual([1, 0, 0, 0]);
+    expect([turned[G - 1][1], turned[G - 1][2]]).toEqual([1, 1]);
     expect(turned.flat().filter((x) => x === 0)).toHaveLength(3);
     expect(turned.flat().filter((x) => x === 1)).toHaveLength(3);
     // No floating discs: nothing sits above an empty cell.
