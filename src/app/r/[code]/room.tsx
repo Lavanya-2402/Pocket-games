@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, getName, me, realtime, setName, type RoomView } from "@/lib/client";
 import { missLimit } from "@/games/runner";
 import { isMuted, play, setMuted } from "@/lib/sound";
+import { usePeerLink, type Signal } from "@/lib/p2p";
 import { HowToPlayButton } from "@/components/how-to-play";
 import { getEngine } from "@/games";
 import type { BidTacToeView } from "@/games/bidtactoe";
@@ -40,6 +41,8 @@ export function Room({ code }: { code: string }) {
   const [linkUp, setLinkUp] = useState(true); // our own realtime connection
   const [presenceReady, setPresenceReady] = useState(false); // got the first presence list
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const rtcRef = useRef<((s: Signal) => void) | null>(null); // direct-link signaling handler
+  const peerSendRef = useRef<(msg: unknown) => boolean>(() => false); // direct-link send
 
   // Chat + reactions: sent straight between phones over the room channel (not stored).
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -57,16 +60,26 @@ export function Room({ code }: { code: string }) {
     return viewRef.current?.players.find((p) => p.id === id)?.name ?? fallback;
   }, []);
 
+  // Chat/reactions may arrive twice (direct link + server channel); show each once.
+  const seenRef = useRef(new Set<string>());
+  const firstTime = (id: unknown) => {
+    if (typeof id !== "string") return true;
+    if (seenRef.current.has(id)) return false;
+    seenRef.current.add(id);
+    if (seenRef.current.size > 300) seenRef.current = new Set([...seenRef.current].slice(-150));
+    return true;
+  };
+
   const receiveChat = useCallback((m: ChatMessage) => {
-    if (!m?.text || typeof m.text !== "string") return;
+    if (!m?.text || typeof m.text !== "string" || !firstTime(m.id)) return;
     const clean = { ...m, text: m.text.slice(0, MAX_CHAT), name: displayName(m.from, String(m.name).slice(0, 20)) };
     setMessages((list) => [...list.slice(-49), clean]);
     if (!chatOpenRef.current) setUnread((n) => n + 1);
     play("chat");
   }, [displayName]);
 
-  const showReaction = useCallback((emoji: unknown, from: unknown) => {
-    if (typeof emoji !== "string" || !(REACTIONS as readonly string[]).includes(emoji)) return;
+  const showReaction = useCallback((emoji: unknown, from: unknown, id?: unknown) => {
+    if (typeof emoji !== "string" || !(REACTIONS as readonly string[]).includes(emoji) || !firstTime(id)) return;
     const key = `${Date.now()}-${Math.random()}`;
     const r = { key, emoji, name: displayName(String(from), "Spectator"), x: Math.random() };
     setFloating((f) => [...f.slice(-7), r]);
@@ -80,6 +93,8 @@ export function Room({ code }: { code: string }) {
     lastSentRef.current.chat = now;
     const m: ChatMessage = { id: `${now}-${Math.random()}`, from: me().id, name: getName(), text, at: now };
     setMessages((list) => [...list.slice(-49), { ...m, name: "You" }]);
+    // Direct link first (instant on same Wi-Fi); the channel copy reaches spectators too.
+    peerSendRef.current({ t: "chat", m });
     channelRef.current?.send({ type: "broadcast", event: "chat", payload: m });
   }
 
@@ -87,15 +102,27 @@ export function Room({ code }: { code: string }) {
     const now = Date.now();
     if (now - lastSentRef.current.react < 600) return;
     lastSentRef.current.react = now;
-    showReaction(emoji, me().id);
-    channelRef.current?.send({ type: "broadcast", event: "react", payload: { emoji, from: me().id } });
+    const payload = { emoji, from: me().id, id: `${now}-${Math.random()}` };
+    showReaction(emoji, me().id, payload.id);
+    peerSendRef.current({ t: "react", ...payload });
+    channelRef.current?.send({ type: "broadcast", event: "react", payload });
   }
 
+  // A move that arrived over the direct link is shown before the server confirms it.
+  // Until a newer server version arrives, don't let an older poll undo it.
+  const directRef = useRef<{ base: number; timer: ReturnType<typeof setTimeout> } | null>(null);
+
   const accept = useCallback((v: RoomView) => {
-    const fresher = pendingRef.current ? v.version > versionRef.current : v.version >= versionRef.current;
+    const holding = pendingRef.current || directRef.current !== null;
+    const fresher = holding ? v.version > versionRef.current : v.version >= versionRef.current;
     if (fresher) {
-      // Someone else's move (ours plays its own sound on tap). Skip the very first load.
-      if (versionRef.current >= 0 && v.version > versionRef.current && !pendingRef.current && v.state) play("opponent");
+      const sawDirect = directRef.current !== null && v.version === directRef.current.base + 1;
+      if (directRef.current && v.version > directRef.current.base) {
+        clearTimeout(directRef.current.timer);
+        directRef.current = null;
+      }
+      // Someone else's move (ours plays its own sound on tap; direct moves already played). Skip the first load.
+      if (versionRef.current >= 0 && v.version > versionRef.current && !pendingRef.current && !sawDirect && v.state) play("opponent");
       versionRef.current = v.version;
       setOffset(v.clock.serverNow - Date.now());
       if (v.you) youRef.current = v.you;
@@ -135,7 +162,8 @@ export function Room({ code }: { code: string }) {
         else if ((payload?.version ?? Infinity) > versionRef.current) refresh();
       })
       .on("broadcast", { event: "chat" }, ({ payload }) => receiveChat(payload as ChatMessage))
-      .on("broadcast", { event: "react" }, ({ payload }) => showReaction(payload?.emoji, payload?.from))
+      .on("broadcast", { event: "react" }, ({ payload }) => showReaction(payload?.emoji, payload?.from, payload?.id))
+      .on("broadcast", { event: "rtc" }, ({ payload }) => rtcRef.current?.(payload as Signal))
       .on("presence", { event: "sync" }, () => {
         setOnline(new Set(Object.keys(ch.presenceState())));
         setPresenceReady(true);
@@ -165,6 +193,52 @@ export function Room({ code }: { code: string }) {
       window.removeEventListener("offline", onNet);
     };
   }, [!!view, code, refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- Same-Wi-Fi fast mode: direct phone-to-phone link (see src/lib/p2p.ts) ----
+  const [fastMode, setFastMode] = useState(true);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is client-only
+  useEffect(() => setFastMode(localStorage.getItem("pg.fast") !== "0"), []);
+
+  const myIdNow = view?.you && view.you.seat !== null ? view.you.id : null;
+  const peerIdNow = myIdNow ? view?.players.find((p) => p.id !== myIdNow)?.id ?? null : null;
+
+  const onPeerMessage = useCallback((msg: unknown) => {
+    const m = msg as { t?: string } & Record<string, unknown>;
+    if (m.t === "chat") receiveChat(m.m as ChatMessage);
+    else if (m.t === "react") showReaction(m.emoji, m.from, m.id);
+    else if (m.t === "move") {
+      // Opponent's move, straight from their phone. Show it now if it applies cleanly to
+      // the exact board we have; the server's update confirms (or corrects) it shortly.
+      const v = viewRef.current;
+      const engine = v && getEngine(v.game);
+      if (!v?.state || !engine || engine.hiddenInfo || v.winner || m.base !== v.version) return;
+      const by = String(m.by);
+      if (by === myIdNow || !v.players.some((p) => p.id === by)) return;
+      if (engine.validate(v.state, m.move, by) !== null) return;
+      const state = engine.apply(v.state, m.move, by);
+      const timer = setTimeout(() => {
+        directRef.current = null;
+        refresh(); // server never confirmed — resync
+      }, 4000);
+      if (directRef.current) clearTimeout(directRef.current.timer);
+      directRef.current = { base: v.version, timer };
+      setView({ ...v, state, turn: engine.turn(state), winner: engine.winner(state) });
+      play("opponent");
+    }
+  }, [receiveChat, showReaction, myIdNow, refresh]);
+
+  const { status: linkStatus, send: peerSend, onSignal: peerSignal } = usePeerLink({
+    enabled: fastMode,
+    myId: myIdNow,
+    peerId: peerIdNow,
+    peerOnline: !!peerIdNow && online.has(peerIdNow),
+    sendSignal: (s) => channelRef.current?.send({ type: "broadcast", event: "rtc", payload: s }),
+    onMessage: onPeerMessage,
+  });
+  useEffect(() => {
+    rtcRef.current = peerSignal;
+    peerSendRef.current = peerSend;
+  }, [peerSignal, peerSend]);
 
   // Turn clock: when the deadline passes, ask the server to enforce it. The server
   // checks the time itself, so an early or duplicate call is harmless.
@@ -210,6 +284,8 @@ export function Room({ code }: { code: string }) {
     if (engine && !engine.hiddenInfo && engine.validate(view.state, m, view.you.id) === null) {
       const state = engine.apply(view.state, m, view.you.id);
       setView({ ...view, state, turn: engine.turn(state), winner: engine.winner(state) });
+      // Same Wi-Fi: hand the move straight to the other phone too.
+      peerSendRef.current({ t: "move", move: m, base: view.version, by: view.you.id });
     }
     pendingRef.current = true;
     try {
@@ -320,6 +396,20 @@ export function Room({ code }: { code: string }) {
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between">
         <Link href="/" className="text-sm text-muted">← Home</Link>
+        {isPlayer && (
+          <button
+            onClick={() => {
+              localStorage.setItem("pg.fast", fastMode ? "0" : "1");
+              setFastMode(!fastMode);
+            }}
+            aria-pressed={fastMode}
+            aria-label={`Same Wi-Fi fast mode: ${!fastMode ? "off" : linkStatus === "direct" ? "connected" : "on, not connected"}`}
+            className={`ml-auto mr-2 flex h-10 items-center gap-1 rounded-full border px-3 text-xs font-semibold transition
+              ${linkStatus === "direct" ? "border-o bg-o text-white" : "border-line bg-surface"} ${fastMode ? "" : "opacity-50"}`}
+          >
+            ⚡ {!fastMode ? "Off" : linkStatus === "direct" ? "Direct" : linkStatus === "connecting" ? "…" : "Wi-Fi"}
+          </button>
+        )}
         <button
           onClick={() => {
             setMuted(!mutedState);
@@ -328,7 +418,7 @@ export function Room({ code }: { code: string }) {
           }}
           aria-label={mutedState ? "Unmute sounds" : "Mute sounds"}
           aria-pressed={mutedState}
-          className="ml-auto mr-2 size-10 rounded-full border border-line bg-surface text-lg"
+          className={`${isPlayer ? "" : "ml-auto"} mr-2 size-10 shrink-0 rounded-full border border-line bg-surface text-lg`}
         >
           {mutedState ? "🔇" : "🔊"}
         </button>
@@ -336,7 +426,7 @@ export function Room({ code }: { code: string }) {
           onClick={share}
           className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 text-sm"
         >
-          Room <span className="font-display font-extrabold tracking-[0.2em]">{code}</span> · Share
+<span className="font-display font-extrabold tracking-[0.2em]">{code}</span> · Share
         </button>
       </header>
 
