@@ -59,6 +59,11 @@ export function ChatDock({
   useEffect(() => {
     if (open) list.current?.scrollTo({ top: list.current.scrollHeight });
   }, [open, messages.length]);
+  // Close on the way out: a modal left open on a hidden page would block the next one.
+  useEffect(() => {
+    const d = dialog.current;
+    return () => d?.close();
+  }, []);
 
   function show() {
     dialog.current?.showModal();

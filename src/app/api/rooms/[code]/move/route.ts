@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { getEngine } from "@/games";
-import { outcome, playerMove, unwrap, wrap } from "@/games/runner";
+import { outcome, playerMove, unwrap } from "@/games/runner";
 import {
-  authPlayer, broadcast, codeSchema, db, handle, HttpError, identity, loadRoom,
-  parseBody, roomView, saveState,
+  authPlayer, codeSchema, commit, db, handle, HttpError, identity, loadRoom,
+  parseBody, roomView,
 } from "@/lib/server";
 
 const bodySchema = z.object({ move: z.unknown(), version: z.number().int() });
@@ -37,21 +37,16 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/move">) 
       if (problem) throw new HttpError(422, problem);
 
       const r = playerMove(engine, state, meta, parsed.data, who.id, Date.now());
-      const stored = wrap(r.state, r.meta);
-      let version: number;
+      let next;
       try {
-        version = await saveState(code, room.version, stored);
+        next = await commit(room, players, r, meta); // the computer replies here too
       } catch (e) {
         if (simultaneous && attempt < 3 && e instanceof HttpError && e.status === 409) continue;
         throw e;
       }
-      const next = { ...room, state: stored, version };
-      // Log and notify in parallel — one round trip instead of two.
-      await Promise.all([
-        db().from("moves").insert({ room_code: code, player_id: who.id, move: parsed.data, version })
-          .then(({ error }) => error && console.error("move log failed", error)),
-        broadcast(next, players),
-      ]);
+      await db().from("moves")
+        .insert({ room_code: code, player_id: who.id, move: parsed.data, version: next.version })
+        .then(({ error }) => error && console.error("move log failed", error));
       return Response.json(roomView(next, players, who.id));
     }
   });

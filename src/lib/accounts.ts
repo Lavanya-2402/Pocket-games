@@ -93,8 +93,10 @@ export async function requireAccount(req: Request): Promise<Account> {
  * - Account ids must present a valid session and always use the saved profile,
  *   so nobody can sit down as someone else's account.
  */
-export async function resolvePlayer(who: { id: string; secret: string }, guest: z.infer<typeof profileSchema>): Promise<Profile> {
-  const fallback = { name: guest.name, avatar: cleanAvatar(guest.avatar), color: cleanColor(guest.color) };
+export async function resolvePlayer(
+  who: { id: string; secret: string }, guest: z.infer<typeof profileSchema>,
+): Promise<Profile & { account: boolean }> {
+  const fallback = { name: guest.name, avatar: cleanAvatar(guest.avatar), color: cleanColor(guest.color), account: false };
   const { data, error } = await db()
     .from("accounts")
     .select("display_name, avatar, color, sessions(token_hash)")
@@ -108,7 +110,19 @@ export async function resolvePlayer(who: { id: string; secret: string }, guest: 
   if (!data) return fallback;
   const row = data as { display_name: string; avatar: string; color: string; sessions: unknown[] };
   if (!row.sessions?.length) throw new HttpError(401, "Your login expired — log in again");
-  return { name: row.display_name, avatar: cleanAvatar(row.avatar), color: cleanColor(row.color) };
+  return { name: row.display_name, avatar: cleanAvatar(row.avatar), color: cleanColor(row.color), account: true };
+}
+
+/** True if the two accounts are accepted friends. */
+export async function areFriends(a: string, b: string) {
+  const { data, error } = await db()
+    .from("friends")
+    .select("status")
+    .or(`and(account_id.eq.${a},friend_id.eq.${b}),and(account_id.eq.${b},friend_id.eq.${a})`)
+    .eq("status", "accepted")
+    .limit(1);
+  if (error && !isMissing(error)) throw error;
+  return !!data?.length;
 }
 
 /** Parse a form body; on failure, answer with the first field's own message. */

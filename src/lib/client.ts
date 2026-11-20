@@ -3,6 +3,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanAvatar, cleanColor, randomAvatar, randomColor, type Profile } from "./profile";
 import type { RoomView } from "./server";
+import { uuid } from "@/games/util";
 
 export type { RoomView };
 
@@ -18,8 +19,8 @@ function store(key: string, make: () => string) {
 /** Anonymous identity kept on this phone. The secret proves ownership to the server. */
 export function me() {
   return {
-    id: store("pg.id", () => crypto.randomUUID()),
-    secret: store("pg.secret", () => crypto.randomUUID() + crypto.randomUUID()),
+    id: store("pg.id", uuid),
+    secret: store("pg.secret", () => uuid() + uuid()),
   };
 }
 

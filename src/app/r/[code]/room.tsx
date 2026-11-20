@@ -8,30 +8,18 @@ import { saveProfile, useSession } from "@/lib/session";
 import { AccountSheet, type AccountTab } from "@/components/account-sheet";
 import { FriendsSheet } from "@/components/friends-sheet";
 import { Avatar } from "@/components/ui";
-import { missLimit } from "@/games/runner";
+import { BOT_ID, missLimit, winsNeeded } from "@/games/runner";
 import { isMuted, play, setMuted } from "@/lib/sound";
 import { usePeerLink, type Signal } from "@/lib/p2p";
 import { HowToPlayButton } from "@/components/how-to-play";
 import { getEngine } from "@/games";
-import type { BidTacToeView } from "@/games/bidtactoe";
-import type { Connect4State } from "@/games/connect4";
-import type { DuelView } from "@/games/duel";
-import type { TicTacToeState } from "@/games/tictactoe";
-import { BidTacToeBoard } from "./bidtactoe-board";
-import { Connect4Board } from "./connect4-board";
-import { DuelBoard } from "./duel-board";
-import type { ColorRushView } from "@/games/colorrush";
-import type { SeaBattleView } from "@/games/seabattle";
-import { ColorRushBoard } from "./colorrush-board";
-import { SeaBattleBoard } from "./seabattle-board";
-import { TicTacToeBoard } from "./tictactoe-board";
+import { GAME_UI } from "./boards";
 import { AwayBanner, TurnClock } from "./turn-clock";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
   ChatDock, MAX_CHAT, REACTIONS, ReactionLayer, type ChatMessage, type FloatingReaction,
 } from "./chat";
 
-const SIMULTANEOUS = new Set(["bidtactoe", "duel"]);
 
 export function Room({ code }: { code: string }) {
   const session = useSession();
@@ -367,40 +355,38 @@ export function Room({ code }: { code: string }) {
   const seat = (s: number) => view.players.find((p) => p.seat === s);
   const myId = view.you?.id;
   const isPlayer = view.you?.seat !== null && view.you?.seat !== undefined;
-  const opponent = view.players.find((p) => p.id !== myId);
+  const ui = GAME_UI[view.game];
   // The game keeps its own player order (index 0 moves first), which flips on every
   // rematch. Room seats never change. Boards work in game order, so translate here.
   const gameOrder = ((view.state as { players?: string[] } | null)?.players ?? []) as string[];
   const roleOf = (id?: string) => (id ? gameOrder.indexOf(id) : -1);
-  const gameSeat = myId && roleOf(myId) !== -1 ? roleOf(myId) : null;
+  const gameSeat = (myId && roleOf(myId) !== -1 ? roleOf(myId) : null) as 0 | 1 | null;
   const gameNames: [string, string] = [nameOf(view, gameOrder[0] ?? null), nameOf(view, gameOrder[1] ?? null)];
   // Game seats listed in room-seat order: lets boards keep each player in the same place every game.
-  const firstSeat = roleOf(view.players.find((p) => p.seat === 0)?.id) === 1 ? 1 : 0;
+  const firstSeat = roleOf(seat(0)?.id) === 1 ? 1 : 0;
   const layout: [number, number] = [firstSeat, 1 - firstSeat];
-  const away = presenceReady && view.state && !view.winner
-    ? view.players.filter((p) => p.id !== myId && !online.has(p.id))
-    : [];
-  const isOnline = (id?: string) => !!id && (id === myId || !presenceReady || online.has(id));
-
-  let status: string;
-  if (!view.state) status = "Waiting for a friend to join…";
-  else if (view.winner === "draw") status = "It's a draw";
-  else if (view.winner) status = view.winner === myId ? "You win! 🎉" : `${nameOf(view, view.winner)} wins`;
-  else if (SIMULTANEOUS.has(view.game)) {
-    const s = view.state as { pending: unknown[]; round: number };
-    const mine = gameSeat !== null ? s.pending[gameSeat] : null;
-    const verb = view.game === "duel" ? "pick your move" : "place your bid";
-    status = !isPlayer ? `Round ${s.round}: choosing…` : mine ? "Locked in" : `Round ${s.round}: ${verb}`;
-  } else if (view.game === "seabattle" && (view.state as SeaBattleView).phase === "place") {
-    const ready = (view.state as SeaBattleView).ready;
-    status = gameSeat === null ? "Placing ships…" : ready[gameSeat] ? "Ships ready" : "Place your ships";
-  } else if (view.turn === myId) status = view.game === "seabattle" ? "Your shot" : "Your turn";
-  else status = isPlayer ? `${opponent?.name ?? "Opponent"}'s turn` : `${nameOf(view, view.turn)}'s turn`;
+  const vsComputer = view.players.some((p) => p.id === BOT_ID);
+  const here = (id: string) => id === myId || id === BOT_ID || !presenceReady || online.has(id);
+  const away = view.state && !view.winner ? view.players.filter((p) => !here(p.id)) : [];
 
   const playing = view.state != null;
-  const fit = view.game === "tictactoe" || view.game === "connect4"
-    ? "fit-square"
-    : view.game === "seabattle" ? "w-full" : "mx-auto w-full lg:max-w-lg";
+  const { series, options } = view;
+  const word = ui?.turnWord ?? "turn";
+  const custom = playing && !view.winner ? ui?.status?.(view.state, gameSeat) ?? null : null;
+  let status: string;
+  if (!playing) status = "Waiting for a friend to join…";
+  else if (view.winner === "draw") status = "It's a draw";
+  else if (view.winner) {
+    const mine = view.winner === myId;
+    status = series.done
+      ? mine ? "You win the match! 🏆" : `${nameOf(view, view.winner)} wins the match`
+      : mine ? "You win! 🎉" : `${nameOf(view, view.winner)} wins`;
+  } else if (custom) status = custom;
+  else if (view.turn === myId) status = `Your ${word}`;
+  else status = `${nameOf(view, view.turn)}'s ${word}`;
+
+  const showScore = series.games > 0 || options.bestOf > 1;
+  const winsOf = (s: number) => series.wins[seat(s)?.id ?? ""] ?? 0;
   const openAccount = (t: AccountTab) => {
     setAccountTab(t);
     setSheet("account");
@@ -416,8 +402,10 @@ export function Room({ code }: { code: string }) {
         >
           ←
         </Link>
-        <span className="mr-auto min-w-0 truncate font-display text-lg font-extrabold"><span className="hidden sm:inline">{view.gameName}</span></span>
-        {isPlayer && (
+        <span className="mr-auto min-w-0 truncate font-display text-lg font-extrabold">
+          <span className="hidden sm:inline">{view.gameName}</span>
+        </span>
+        {isPlayer && !vsComputer && (
           <button
             onClick={() => {
               localStorage.setItem("pg.fast", fastMode ? "0" : "1");
@@ -450,39 +438,58 @@ export function Room({ code }: { code: string }) {
           className="flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-sm"
         >
           <span className="font-display font-extrabold tracking-[0.15em]">{code}</span>
-          <span aria-hidden>↗</span>
+          <span aria-hidden>{options.private ? "🔒" : "↗"}</span>
         </button>
       </header>
 
-      {/* Who's playing, whose turn, and the clock. Beside the board on wide screens. */}
+      {/* Who's playing, the score, whose turn, and the clock. Beside the board on wide screens. */}
       <section className="flex min-w-0 flex-col gap-3 lg:col-start-2 lg:row-start-2">
-        {/* Simultaneous games show their own player cards (coins / HP). */}
-        {!(SIMULTANEOUS.has(view.game) && view.state) && (
+        {/* Some games draw their own player cards (coins / health). */}
+        {!(ui?.ownCards && playing) && (
           <div className="grid grid-cols-2 gap-2">
             {[0, 1].map((s) => {
               const p = seat(s);
               const active = p && view.turn === p.id;
               const look = p ? lookFor(p) : null;
+              const role = roleOf(p?.id);
               return (
                 <div
                   key={s}
                   className={`flex min-w-0 items-center gap-2 rounded-2xl border px-2.5 py-2 transition ${active ? "border-ink bg-surface" : "border-line"}`}
                 >
                   {look
-                    ? <Avatar avatar={look.avatar} color={look.color} size={36} online={isOnline(p!.id)} />
+                    ? <Avatar avatar={look.avatar} color={look.color} size={36} online={here(p!.id)} />
                     : <span className="size-9 shrink-0 rounded-full border border-dashed border-muted" />}
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                     {p ? p.name : <span className="font-normal text-muted">waiting…</span>}
                     {p?.id === myId && <span className="font-normal text-muted"> (you)</span>}
                   </span>
-                  {playing && p && (
-                    <span className={`font-display text-lg leading-none font-extrabold ${roleOf(p.id) === 1 ? "text-o" : "text-x"}`}>
-                      {markFor(view, p.id)}
+                  {playing && ui?.mark && (role === 0 || role === 1) && (
+                    <span className={`font-display text-lg leading-none font-extrabold ${role === 1 ? "text-o" : "text-x"}`}>
+                      {ui.mark(role)}
                     </span>
                   )}
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {showScore && seat(0) && seat(1) && (
+          <div className="flex flex-col items-center gap-0.5" aria-label="Match score">
+            <div className="flex max-w-full items-center gap-2 text-sm">
+              <span className="min-w-0 truncate font-semibold">{seat(0)!.id === myId ? "You" : seat(0)!.name}</span>
+              <span className="shrink-0 rounded-full bg-surface px-3 py-0.5 font-display text-base font-extrabold tabular-nums">
+                {winsOf(0)} – {winsOf(1)}
+              </span>
+              <span className="min-w-0 truncate font-semibold">{seat(1)!.id === myId ? "You" : seat(1)!.name}</span>
+            </div>
+            <p className="text-xs text-muted">
+              {options.bestOf > 1 ? `Best of ${options.bestOf} · first to ${winsNeeded(options.bestOf)}` : `${series.games} played`}
+              {series.draws > 0 && ` · ${series.draws} draw${series.draws > 1 ? "s" : ""}`}
+              {series.streak && series.streak.n >= 2 &&
+                ` · 🔥 ${series.streak.id === myId ? "you" : nameOf(view, series.streak.id)} ${series.streak.n} in a row`}
+            </p>
           </div>
         )}
 
@@ -515,10 +522,14 @@ export function Room({ code }: { code: string }) {
       </section>
 
       {/* The game itself */}
-      <section className={`flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-span-2 lg:row-start-2 ${playing ? fit : ""}`}>
+      <section className={`flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-span-2 lg:row-start-2 ${playing ? ui?.fit ?? "" : ""}`}>
         {!playing && (
           <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-line p-6 text-center lg:py-16">
-            <p className="text-muted">On the other phone, open the link or enter this code:</p>
+            <p className="text-muted">
+              {options.private
+                ? "Private room — only your friends can join. Invite one, or share this code with them:"
+                : "On the other phone, open the link or enter this code:"}
+            </p>
             <p className="font-display text-5xl font-extrabold tracking-[0.2em]">{code}</p>
             <div className="flex flex-wrap justify-center gap-2">
               <button onClick={share} className="h-12 rounded-2xl bg-accent px-5 font-semibold text-accent-ink">Share link</button>
@@ -526,63 +537,24 @@ export function Room({ code }: { code: string }) {
                 Invite a friend
               </button>
             </div>
+            {options.bestOf > 1 && <p className="text-sm text-muted">Best of {options.bestOf}</p>}
           </div>
         )}
 
-        {playing && view.game === "tictactoe" && (
-          <TicTacToeBoard
-            state={view.state as TicTacToeState}
-            canMove={isPlayer && view.turn === myId}
-            onMove={(cell) => move({ cell })}
-          />
-        )}
-        {playing && view.game === "bidtactoe" && (
-          <BidTacToeBoard
-            state={view.state as BidTacToeView}
+        {playing && ui && (
+          <ui.Board
+            state={view.state}
             mySeat={gameSeat}
             names={gameNames}
             layout={layout}
-            onBid={(bid, cell) => move({ bid, cell })}
-          />
-        )}
-        {playing && view.game === "duel" && (
-          <DuelBoard
-            state={view.state as DuelView}
-            mySeat={gameSeat}
-            names={gameNames}
-            layout={layout}
-            onAct={(action) => move({ action })}
-          />
-        )}
-        {playing && view.game === "seabattle" && (
-          <SeaBattleBoard
-            state={view.state as SeaBattleView}
-            mySeat={gameSeat}
-            names={gameNames}
-            layout={layout}
+            myTurn={isPlayer && view.turn === myId}
             onMove={move}
-          />
-        )}
-        {playing && view.game === "colorrush" && (
-          <ColorRushBoard
-            state={view.state as ColorRushView}
-            mySeat={gameSeat}
-            names={gameNames}
-            layout={layout}
-            onMove={move}
-          />
-        )}
-        {playing && view.game === "connect4" && (
-          <Connect4Board
-            state={view.state as Connect4State}
-            canMove={isPlayer && view.turn === myId}
-            onMove={(col) => move({ col })}
           />
         )}
 
         {view.winner && isPlayer && (
           <button onClick={rematch} className="h-14 rounded-2xl bg-accent font-semibold text-accent-ink rise">
-            Rematch
+            {series.done ? "New match" : options.bestOf > 1 ? "Next game" : "Rematch"}
           </button>
         )}
       </section>
@@ -590,20 +562,22 @@ export function Room({ code }: { code: string }) {
       {/* Chat and reactions: pinned to the bottom of the screen on phones. */}
       <section className="sticky bottom-0 z-20 -mx-4 flex min-w-0 flex-col gap-1.5 bg-bg/95 px-4 py-2 backdrop-blur lg:static lg:col-start-2 lg:row-start-3 lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
         {error && <p role="alert" className="text-center text-sm text-x">{error}</p>}
-        <ChatDock
-          messages={messages}
-          myId={me().id}
-          unread={unread}
-          onOpen={() => {
-            chatOpenRef.current = true;
-            setUnread(0);
-          }}
-          onClose={() => {
-            chatOpenRef.current = false;
-          }}
-          onSend={sendChat}
-          onReact={sendReaction}
-        />
+        {!vsComputer && (
+          <ChatDock
+            messages={messages}
+            myId={me().id}
+            unread={unread}
+            onOpen={() => {
+              chatOpenRef.current = true;
+              setUnread(0);
+            }}
+            onClose={() => {
+              chatOpenRef.current = false;
+            }}
+            onSend={sendChat}
+            onReact={sendReaction}
+          />
+        )}
         {(!isPlayer || view.spectators > 0) && (
           <p className="text-center text-xs text-muted">
             {!isPlayer ? "You're spectating." : `${view.spectators} watching`}
@@ -658,13 +632,4 @@ function clockLabel(v: RoomView, myId?: string) {
   }
   if (waiting.length === 1) return `${nameOf(v, waiting[0])}'s time`;
   return "Round time";
-}
-
-function markFor(v: RoomView, id?: string) {
-  const players = (v.state as { players?: string[] } | null)?.players;
-  const i = id ? players?.indexOf(id) : -1;
-  if (i !== 0 && i !== 1) return "–";
-  if (v.game === "connect4") return "●";
-  if (v.game !== "tictactoe") return ""; // no per-player piece in the other games
-  return i === 0 ? "✕" : "◯";
 }

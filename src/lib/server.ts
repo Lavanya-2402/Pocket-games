@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getEngine } from "@/games";
-import { outcome, unwrap, waitingOn } from "@/games/runner";
+import { BOT_ID, botTurns, outcome, unwrap, waitingOn, wrap, type Meta } from "@/games/runner";
 
 let admin: SupabaseClient | null = null;
 
@@ -38,7 +38,7 @@ export function identity(req: Request) {
     id: req.headers.get("x-player-id"),
     secret: req.headers.get("x-player-secret"),
   });
-  if (!parsed.success) throw new HttpError(401, "Missing player identity");
+  if (!parsed.success || parsed.data.id === BOT_ID) throw new HttpError(401, "Missing player identity");
   return parsed.data;
 }
 
@@ -179,6 +179,46 @@ export async function saveState(code: string, expectedVersion: number, state: un
   return expectedVersion + 1;
 }
 
+/**
+ * Save a changed game, then tell everyone. Shared by every route that changes a room:
+ * lets the computer take its turns first, and files the result when a game has just ended.
+ */
+export async function commit(
+  room: RoomRow, players: PlayerRow[], next: { state: unknown; meta: Meta }, before: Meta,
+) {
+  const engine = getEngine(room.game)!;
+  const r = next.state === null ? next : botTurns(engine, next.state, next.meta, Date.now(), Math.random);
+  const stored = wrap(r.state, r.meta);
+  const version = await saveState(room.code, room.version, stored);
+  const saved: RoomRow = { ...room, state: stored, version };
+  const jobs: Promise<unknown>[] = [broadcast(saved, players)];
+  if (r.meta.resultId && r.meta.resultId !== before.resultId) jobs.push(recordResult(saved, players, r.state, r.meta));
+  await Promise.all(jobs);
+  return saved;
+}
+
+/** File a finished game in the results table (win/loss records, leaderboards, replays). */
+async function recordResult(room: RoomRow, players: PlayerRow[], state: unknown, meta: Meta) {
+  const engine = getEngine(room.game)!;
+  const order = meta.order ?? (state as { players: [string, string] }).players;
+  const w = outcome(engine, state, meta);
+  const { error } = await db().from("results").insert({
+    id: meta.resultId,
+    room_code: room.code,
+    game: room.game,
+    p0: order[0],
+    p1: order[1],
+    names: order.map((id) => players.find((p) => p.player_id === id)?.name ?? "Player"),
+    winner: w === "draw" ? null : w,
+    forfeit: meta.forfeit !== null,
+    vs_bot: order.includes(BOT_ID),
+    moves: meta.log.length,
+    replay: { seed: meta.seed, order, rules: meta.options.rules, log: meta.log },
+  });
+  // Before migration 003 the table doesn't exist; the game itself is unaffected.
+  if (error && !isMissing(error) && error.code !== "23505") console.error("result not saved", error);
+}
+
 export function seatedIds(players: PlayerRow[]): [string, string] | null {
   const a = players.find((p) => p.seat === 0);
   const b = players.find((p) => p.seat === 1);
@@ -207,6 +247,10 @@ export function roomView(room: RoomRow, players: PlayerRow[], viewerId: string |
     state: live ? engine.viewFor(state, viewerId) : null,
     turn: live && !meta.forfeit ? engine.turn(state) : null,
     winner: live ? outcome(engine, state, meta) : null,
+    options: meta.options,
+    series: meta.series,
+    /** Id of the finished game's replay, once it has ended. */
+    replayId: live ? meta.resultId : null,
     clock: {
       deadline: meta.deadline,
       limit: live ? engine.timeLimit(state) : 0,

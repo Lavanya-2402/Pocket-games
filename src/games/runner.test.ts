@@ -90,7 +90,7 @@ describe("runner: turn clock", () => {
     const s = ticTacToe.init([A, B], 0);
     const m = start(ticTacToe, s, 0);
     expect(unwrap(wrap(s, m))).toEqual({ state: s, meta: m });
-    expect(unwrap(s).meta).toEqual({ deadline: null, misses: {}, forfeit: null });
+    expect(unwrap(s).meta).toMatchObject({ deadline: null, misses: {}, forfeit: null, resultId: null });
   });
 
   it("stops the clock when the game ends", () => {

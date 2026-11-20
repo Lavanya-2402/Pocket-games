@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AccountSheet, type AccountTab } from "@/components/account-sheet";
 import { FriendsSheet } from "@/components/friends-sheet";
+import { NewGameSheet } from "@/components/new-game-sheet";
 import { RulesCard } from "@/components/how-to-play";
 import { Avatar, Sheet } from "@/components/ui";
 import { CATALOG, GROUPS, type GameEntry } from "@/games/catalog";
+import type { RoomOptions } from "@/games/runner";
 import { api, localProfile } from "@/lib/client";
 import { friendAction, useSession } from "@/lib/session";
 
@@ -21,6 +23,7 @@ export default function Home() {
   const [sheet, setSheet] = useState<null | "account" | "friends">(null);
   const [tab, setTab] = useState<AccountTab>("profile");
   const [rulesFor, setRulesFor] = useState<string | null>(null);
+  const [newGame, setNewGame] = useState<string | null>(null);
   // What the player was trying to do when we asked for their name first.
   const [afterName, setAfterName] = useState<null | (() => void)>(null);
 
@@ -31,16 +34,18 @@ export default function Home() {
     setSheet("account");
   }
 
-  async function create(game: string) {
+  async function create(game: string, options: RoomOptions) {
     setBusy(game);
     setError("");
     try {
-      const { code } = await api<{ code: string }>("/rooms", { game, ...localProfile() });
+      const { code } = await api<{ code: string }>("/rooms", { game, options, ...localProfile() });
       router.push(`/r/${code}`);
     } catch (e) {
       setError((e as Error).message);
-      setBusy(null);
     }
+    // This page stays alive in the background after navigating, so leave it tidy.
+    setBusy(null);
+    setNewGame(null);
   }
 
   function join(e: React.FormEvent) {
@@ -151,7 +156,7 @@ export default function Home() {
                     game={x}
                     busy={busy === x.id}
                     disabled={busy !== null}
-                    onPlay={() => withName(() => create(x.id))}
+                    onPlay={() => withName(() => setNewGame(x.id))}
                     onRules={() => setRulesFor(x.id)}
                   />
                 ))}
@@ -168,7 +173,7 @@ export default function Home() {
 
       <p className="text-center text-xs text-muted">
         {group === "all" && <>{CATALOG.filter((x) => x.soon).length} more games are coming — tap a group to see them. </>}
-        Tap a game to open a room, then share the code.
+        Tap a game to set it up, then share the code.
         {ready && !username && (
           <>
             {" "}
@@ -209,6 +214,13 @@ export default function Home() {
           setTab("account");
           setSheet("account");
         }}
+      />
+      <NewGameSheet
+        game={newGame}
+        onClose={() => setNewGame(null)}
+        onCreate={create}
+        busy={busy !== null}
+        loggedIn={!!username}
       />
       <Sheet open={rulesFor !== null} onClose={() => setRulesFor(null)} title="How to play">
         {rulesFor && <RulesCard game={rulesFor} />}

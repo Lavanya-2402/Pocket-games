@@ -1,7 +1,7 @@
 import { getEngine } from "@/games";
-import { timeout, unwrap, wrap } from "@/games/runner";
+import { timeout, unwrap } from "@/games/runner";
 import {
-  authPlayer, broadcast, codeSchema, db, handle, HttpError, identity, loadRoom, roomView, saveState,
+  authPlayer, codeSchema, commit, handle, HttpError, identity, loadRoom, roomView,
 } from "@/lib/server";
 
 /**
@@ -17,32 +17,22 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/tick">) 
 
     const { room, players } = await loadRoom(code);
     const me = await authPlayer(players, who);
+    const viewer = me?.player_id ?? null;
     const { state, meta } = unwrap(room.state);
-    if (!state) return Response.json(roomView(room, players, me?.player_id ?? null));
+    if (!state) return Response.json(roomView(room, players, viewer));
 
-    const engine = getEngine(room.game)!;
-    const r = timeout(engine, state, meta, Date.now(), Math.random);
-    if (!r) return Response.json(roomView(room, players, me?.player_id ?? null));
+    const r = timeout(getEngine(room.game)!, state, meta, Date.now(), Math.random);
+    if (!r) return Response.json(roomView(room, players, viewer));
 
-    const stored = wrap(r.state, r.meta);
-    let version: number;
     try {
-      version = await saveState(code, room.version, stored);
+      return Response.json(roomView(await commit(room, players, r, meta), players, viewer));
     } catch (e) {
       // Another phone enforced it (or someone moved) first — just return the latest.
       if (e instanceof HttpError && e.status === 409) {
         const fresh = await loadRoom(code);
-        return Response.json(roomView(fresh.room, fresh.players, me?.player_id ?? null));
+        return Response.json(roomView(fresh.room, fresh.players, viewer));
       }
       throw e;
     }
-    const next = { ...room, state: stored, version };
-    await Promise.all([
-      db().from("moves")
-        .insert({ room_code: code, player_id: who.id, move: { timeout: true, forfeit: r.forfeited }, version })
-        .then(({ error }) => error && console.error("move log failed", error)),
-      broadcast(next, players),
-    ]);
-    return Response.json(roomView(next, players, me?.player_id ?? null));
   });
 }

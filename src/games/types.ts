@@ -13,7 +13,9 @@ export interface GameEngine<S, M> {
   /** True if viewFor hides anything (cards, ships, bids). Disables state-in-broadcast. */
   hiddenInfo?: boolean;
   moveSchema: ZodType<M>;
-  init(players: Players, seed: number): S;
+  /** Optional house rules this game understands, offered as toggles when creating a room. */
+  rules?: { id: string; label: string; hint: string }[];
+  init(players: Players, seed: number, rules?: Record<string, boolean>): S;
   /** Returns an error message, or null if the move is legal. */
   validate(state: S, move: M, playerId: string): string | null;
   apply(state: S, move: M, playerId: string): S;
@@ -28,6 +30,8 @@ export interface GameEngine<S, M> {
   timeLimit(state: S): number;
   /** A legal move to make on a player's behalf when their time runs out. */
   autoMove(state: S, playerId: string, rng: () => number): M;
+  /** The computer opponent's move. Games without this can't be played against the computer. */
+  botMove?(state: S, playerId: string, rng: () => number, level: "easy" | "hard"): M;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

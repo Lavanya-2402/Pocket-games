@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { GameEngine, Outcome, Players } from "./types";
+import { pick } from "./util";
 
 export type Mark = "X" | "O";
 
@@ -64,5 +65,41 @@ export const ticTacToe: GameEngine<TicTacToeState, TicTacToeMove> = {
   autoMove(s, _p, rng) {
     const open = s.board.flatMap((c, i) => (c === null ? [i] : []));
     return { cell: open[Math.floor(rng() * open.length)] };
+  },
+  // Hard never loses (full search). Easy plays the best move only some of the time.
+  botMove(s, _p, rng, level) {
+    const open = s.board.flatMap((c, i) => (c === null ? [i] : []));
+    if (level === "easy" && rng() < 0.6) return { cell: pick(open, rng) };
+    const me: Mark = s.turn === 0 ? "X" : "O";
+    const other = (m: Mark): Mark => (m === "X" ? "O" : "X");
+    // Score from the bot's point of view; quicker wins and slower losses score better.
+    const seen = new Map<string, number>(); // positions repeat a lot; remember them
+    const search = (board: (Mark | null)[], who: Mark, depth: number): number => {
+      const line = findLine(board);
+      if (line) return board[line[0]] === me ? 10 - depth : depth - 10;
+      const free = board.flatMap((c, i) => (c === null ? [i] : []));
+      if (!free.length) return 0;
+      const key = board.map((c) => c ?? "-").join("");
+      const known = seen.get(key);
+      if (known !== undefined) return known;
+      const scores = free.map((i) => {
+        board[i] = who;
+        const v = search(board, other(who), depth + 1);
+        board[i] = null;
+        return v;
+      });
+      const best = who === me ? Math.max(...scores) : Math.min(...scores);
+      seen.set(key, best);
+      return best;
+    };
+    const board = [...s.board];
+    const scored = open.map((i) => {
+      board[i] = me;
+      const v = search(board, other(me), 1);
+      board[i] = null;
+      return [i, v] as const;
+    });
+    const best = Math.max(...scored.map(([, v]) => v));
+    return { cell: pick(scored.filter(([, v]) => v === best).map(([i]) => i), rng) };
   },
 };

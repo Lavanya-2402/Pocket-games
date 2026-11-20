@@ -39,16 +39,28 @@ export function Sheet({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const silent = useRef(false); // closing because the page is going away, not because the user asked
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
     if (open && !d.open) d.showModal();
     if (!open && d.open) d.close();
+    // Next.js keeps the previous page alive (hidden) after navigating. A modal dialog left
+    // open there would still block every tap on the new page, so always close on the way out.
+    return () => {
+      if (d.open) {
+        silent.current = true;
+        d.close();
+      }
+    };
   }, [open]);
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      onClose={() => {
+        if (silent.current) silent.current = false;
+        else onClose();
+      }}
       onClick={(e) => e.target === ref.current && onClose()}
       className="m-0 mt-auto max-h-[88dvh] w-full max-w-none overflow-y-auto rounded-t-3xl bg-surface p-0 text-ink backdrop:bg-black/50 sm:m-auto sm:max-w-md sm:rounded-3xl"
     >

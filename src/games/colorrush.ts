@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { GameEngine, Outcome, Players } from "./types";
+import { rngFrom, shuffle } from "./util";
 
 /**
  * Color Rush: a two-player shedding card game (Crazy Eights family).
@@ -48,28 +49,6 @@ export interface ColorRushView {
   deckCount: number;
   last: ColorRushState["last"];
   winner: Outcome;
-}
-
-/** mulberry32: small seeded RNG, so shuffles are reproducible from the stored seed. */
-function rngFrom(seed: number) {
-  let a = seed >>> 0;
-  const next = () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-  return { next, seed: () => a };
-}
-
-function shuffle<T>(arr: T[], rand: () => number) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 export function buildDeck(): Card[] {

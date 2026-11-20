@@ -1,10 +1,13 @@
 import { getEngine } from "@/games";
-import { outcome, start, unwrap, wrap } from "@/games/runner";
+import { begin, outcome, unwrap } from "@/games/runner";
 import {
-  authPlayer, broadcast, codeSchema, handle, HttpError, identity, loadRoom, roomView, saveState,
+  authPlayer, codeSchema, commit, handle, HttpError, identity, loadRoom, roomView,
 } from "@/lib/server";
 
-/** New game in the same room, with the other player going first. */
+/**
+ * Next game in the same room, with the other player going first. The match score
+ * carries over; once a best-of match is decided, this starts a new match.
+ */
 export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/rematch">) {
   return handle(async () => {
     const code = (await ctx.params).code.toUpperCase();
@@ -19,11 +22,8 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/rematch"
     if (!prev || outcome(engine, prev, meta) === null) throw new HttpError(409, "Game still in progress");
 
     const [p0, p1] = (prev as { players: [string, string] }).players;
-    const fresh = engine.init([p1, p0], Math.floor(Math.random() * 2 ** 31));
-    const state = wrap(fresh, start(engine, fresh, Date.now()));
-    const version = await saveState(code, room.version, state);
-    const next = { ...room, state, version };
-    await broadcast(next, players);
+    const started = begin(engine, [p1, p0], Math.floor(Math.random() * 2 ** 31), meta, Date.now());
+    const next = await commit(room, players, started, started.meta);
     return Response.json(roomView(next, players, who.id));
   });
 }

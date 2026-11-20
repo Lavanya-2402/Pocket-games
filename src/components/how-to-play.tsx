@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { RULES } from "@/games/rules";
 
 /** The rules for one game, as a card. */
@@ -42,6 +42,11 @@ export function RulesCard({ game, hideTitle = false }: { game: string; hideTitle
 /** A "How to play" button that opens the rules in a bottom sheet. */
 export function HowToPlayButton({ game, className = "", compact = false }: { game: string; className?: string; compact?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Close on the way out: a modal left open on a hidden page would block the next one.
+  useEffect(() => {
+    const d = ref.current;
+    return () => d?.close();
+  }, []);
   if (!RULES[game]) return null;
   return (
     <>
