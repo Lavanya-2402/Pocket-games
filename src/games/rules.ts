@@ -3,7 +3,9 @@ import { HAND_SIZE } from "./colorrush";
 import { COST, MAX_DEFENDS, MAX_ENERGY, MAX_HP, MAX_ROUNDS, START_ENERGY } from "./duel";
 import { LEN as CODE_LEN, MAX_GUESSES } from "./codebreaker";
 import { N as DOTS_N } from "./dots";
+import { DICE } from "./liarsdice";
 import { PAIRS } from "./memory";
+import { MINES, TARGET as MINE_TARGET } from "./minefield";
 import { NEED, SIZE as FIVE_SIZE } from "./five";
 import { FLEET, SHIP_NAMES, SIZE } from "./seabattle";
 
@@ -183,6 +185,38 @@ export const RULES: Record<string, Rules> = {
     tips: [
       "Watch your opponent's flips as closely as your own.",
       "Not sure? Flip a card nobody has seen yet first — you might already know its partner.",
+    ],
+  },
+  minefield: {
+    title: "Minefield Duel",
+    tagline: "One minefield, two hunters.",
+    goal: `Find ${MINE_TARGET} of the ${MINES} hidden mines before your opponent does.`,
+    steps: [
+      "Both players share the same grid. Take turns opening one square.",
+      "Found a mine? It's yours — and you open another square straight away.",
+      "A safe square shows how many mines touch it (including diagonally), and your turn ends.",
+      "A square with no mines nearby opens its neighbours automatically.",
+    ],
+    tips: [
+      "If a number equals the unopened squares around it, every one of them is a mine.",
+      "Opening a safe square gives your opponent clues too — sometimes a risky guess is better.",
+    ],
+  },
+  liarsdice: {
+    title: "Liar's Dice",
+    tagline: "Bid. Bluff. Call it.",
+    goal: "Make your opponent lose all their dice.",
+    steps: [
+      `Each player starts with ${DICE} dice. Every round you both roll in secret.`,
+      "Take turns bidding how many dice of one face there are across BOTH hands, like \"three 4s\".",
+      "Each bid must be higher: more dice of any face, or the same number of a higher face.",
+      "Instead of bidding you can call \"Liar!\". All dice are shown and counted.",
+      "If the bid was true, the caller loses a die. If it was a bluff, the bidder does.",
+      "Whoever lost the die starts the next round. Run out of dice and you lose.",
+    ],
+    tips: [
+      "With ten dice in play, about one in six shows any given face — bid from what you hold.",
+      "A confident raise on a face you don't have can scare off a call. Sometimes.",
     ],
   },
   colorrush: {

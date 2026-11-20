@@ -10,7 +10,9 @@ import { DotsBoard } from "./dots-board";
 import { DuelBoard } from "./duel-board";
 import { FiveBoard } from "./five-board";
 import { GravityBoard } from "./gravity-board";
+import { LiarsDiceBoard } from "./liarsdice-board";
 import { MemoryBoard } from "./memory-board";
+import { MinefieldBoard } from "./minefield-board";
 import { SeaBattleBoard } from "./seabattle-board";
 import { TerritoryBoard } from "./territory-board";
 import { TicTacToeBoard } from "./tictactoe-board";
@@ -95,6 +97,8 @@ export const GAME_UI: Record<string, GameUI> = {
       s.phase !== "set" ? null : me === null ? "Choosing codes…" : s.ready[me] ? "Code locked" : "Set your code",
   },
   memory: { Board: MemoryBoard, fit: "fit-tall" },
+  minefield: { Board: MinefieldBoard, fit: "fit-tall" },
+  liarsdice: { Board: LiarsDiceBoard, fit: WIDE },
   colorrush: {
     Board: (p) => <ColorRushBoard state={p.state} mySeat={p.mySeat} names={p.names} layout={p.layout} onMove={p.onMove} />,
     fit: WIDE,

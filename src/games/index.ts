@@ -6,7 +6,9 @@ import { dots } from "./dots";
 import { duel } from "./duel";
 import { five } from "./five";
 import { gravity } from "./gravity";
+import { liarsDice } from "./liarsdice";
 import { memory } from "./memory";
+import { minefield } from "./minefield";
 import { seaBattle } from "./seabattle";
 import { territory } from "./territory";
 import { ticTacToe } from "./tictactoe";
@@ -25,6 +27,8 @@ export const GAMES: Record<string, AnyEngine> = {
   [gravity.id]: gravity,
   [codeBreaker.id]: codeBreaker,
   [memory.id]: memory,
+  [minefield.id]: minefield,
+  [liarsDice.id]: liarsDice,
 };
 
 export function getEngine(id: string): AnyEngine | undefined {

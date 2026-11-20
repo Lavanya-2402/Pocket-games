@@ -34,10 +34,10 @@ export const CATALOG: GameEntry[] = [
   { id: "bidtactoe", name: "Bid-Tac-Toe", tagline: "Outbid them for each square", icon: "🪙", group: "mind" },
   { id: "duel", name: "Duel", tagline: "Attack, defend or charge", icon: "⚔️", group: "mind" },
   { id: "codebreaker", name: "Code Breaker", tagline: "Crack their secret code", icon: "🔐", group: "mind" },
-  { id: "liarsdice", name: "Liar's Dice", tagline: "Bid, bluff, call it", icon: "", group: "mind", soon: true },
+  { id: "liarsdice", name: "Liar's Dice", tagline: "Bid, bluff, call it", icon: "🎲", group: "mind" },
 
   { id: "seabattle", name: "Sea Battle", tagline: "Hide your fleet, sink theirs", icon: "⚓", group: "hunt" },
-  { id: "minefield", name: "Minefield Duel", tagline: "Find more mines", icon: "", group: "hunt", soon: true },
+  { id: "minefield", name: "Minefield Duel", tagline: "Find more mines", icon: "💣", group: "hunt" },
   { id: "memory", name: "Memory Match", tagline: "Flip and pair up", icon: "🧠", group: "hunt" },
 
   { id: "colorrush", name: "Color Rush", tagline: "Match colours, shed cards", icon: "🃏", group: "cards" },

@@ -395,6 +395,11 @@ export function Room({ code }: { code: string }) {
   else if (view.turn === myId) status = `Your ${word}`;
   else status = `${nameOf(view, view.turn)}'s ${word}`;
 
+  // A forfeit ends the game without the engine knowing; tell the board it is over
+  // so it stops offering moves.
+  const boardState = playing && view.winner
+    ? { ...(view.state as object), winner: view.winner }
+    : view.state;
   const showScore = series.games > 0 || options.bestOf > 1;
   const winsOf = (s: number) => series.wins[seat(s)?.id ?? ""] ?? 0;
   const openAccount = (t: AccountTab) => {
@@ -553,7 +558,7 @@ export function Room({ code }: { code: string }) {
 
         {playing && ui && (
           <ui.Board
-            state={view.state}
+            state={boardState}
             mySeat={gameSeat}
             names={gameNames}
             layout={layout}

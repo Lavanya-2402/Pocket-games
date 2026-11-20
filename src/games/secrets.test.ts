@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { codeBreaker as cb, feedback, MAX_GUESSES, validCode, type CodeBreakerView } from "./codebreaker";
+import { DICE, liarsDice as ld, type LiarsDiceState, type LiarsDiceView } from "./liarsdice";
 import { memory as mem, pairsWon, type MemoryState, type MemoryView } from "./memory";
+import { minefield as mf, MINES, SIZE as MF, TARGET, type MinefieldState, type MinefieldView } from "./minefield";
 
 const A = "alice";
 const B = "bob";
@@ -136,5 +138,115 @@ describe("memory match", () => {
     }
     expect(mem.winner(s)).toBe(A);
     expect((mem.viewFor(s, B) as MemoryView).faces.every((f) => f !== null)).toBe(true);
+  });
+});
+
+describe("minefield duel", () => {
+  /** A field with mines along the top row of the first MINES squares. */
+  const rig = (): MinefieldState => {
+    const s = mf.init([A, B], 1);
+    return { ...s, mines: s.mines.map((_, i) => i < MINES) };
+  };
+
+  it("never sends the mine layout while the game is on", () => {
+    const s = mf.init([A, B], 9);
+    expect(s.mines.filter(Boolean)).toHaveLength(MINES);
+    const v = mf.viewFor(s, A) as MinefieldView;
+    expect(v.mines).toBeNull();
+    expect(v.cells.every((c) => c === null)).toBe(true);
+  });
+
+  it("finding a mine scores and keeps the turn", () => {
+    let s = rig();
+    s = mf.apply(s, { cell: 0 }, A);
+    expect(s.found).toEqual([1, 0]);
+    expect(s.cells[0]).toBe(10);
+    expect(mf.turn(s)).toBe(A);
+    expect(mf.validate(s, { cell: 0 }, A)).toBe("That square is already open");
+  });
+
+  it("a safe square shows its count, opens empty areas, and ends the turn", () => {
+    let s = rig();
+    const far = MF * MF - 1; // bottom-right corner: nowhere near the mines
+    s = mf.apply(s, { cell: far }, A);
+    expect(s.cells[far]).toBe(0);
+    expect(s.cells.filter((c) => c !== null).length).toBeGreaterThan(10); // flood opened a region
+    expect(s.cells.some((c) => c !== null && c >= 10)).toBe(false); // but never a mine
+    expect(mf.turn(s)).toBe(B);
+  });
+
+  it("first to find most of the mines wins, and the rest are then revealed", () => {
+    let s = rig();
+    for (let i = 0; i < TARGET; i++) s = mf.apply(s, { cell: i }, A);
+    expect(mf.winner(s)).toBe(A);
+    expect((mf.viewFor(s, B) as MinefieldView).mines).toEqual(s.mines);
+  });
+
+  it("the computer takes a mine it can deduce", () => {
+    // One mine in the corner; open the three squares around it so the 1s pin it down.
+    let s: MinefieldState = { ...mf.init([A, B], 1) };
+    s = { ...s, mines: s.mines.map((_, i) => i === 0) };
+    const cells = [...s.cells];
+    cells[1] = 1; cells[MF] = 1; cells[MF + 1] = 1;
+    // Every other square near those numbers is open and safe, leaving only the corner.
+    for (const i of [2, MF + 2, 2 * MF, 2 * MF + 1, 2 * MF + 2]) cells[i] = 0;
+    s = { ...s, cells };
+    expect(mf.botMove!(s, A, Math.random, "hard")).toEqual({ cell: 0 });
+  });
+});
+
+describe("liar's dice", () => {
+  const rig = (a: number[], b: number[]): LiarsDiceState => ({ ...ld.init([A, B], 4), dice: [a, b] });
+
+  it("each player sees only their own dice, and never the seed", () => {
+    const s = ld.init([A, B], 11);
+    expect(s.dice[0]).toHaveLength(DICE);
+    const forA = ld.viewFor(s, A) as LiarsDiceView;
+    expect(forA.hand).toEqual(s.dice[0]);
+    expect(forA.counts).toEqual([DICE, DICE]);
+    expect("dice" in forA || "seed" in forA).toBe(false);
+    expect((ld.viewFor(s, null) as LiarsDiceView).hand).toEqual([]);
+  });
+
+  it("bids must go up", () => {
+    let s = rig([1, 1, 2, 3, 4], [2, 2, 5, 6, 6]);
+    expect(ld.validate(s, { type: "call" }, A)).toBe("There is no bid to call yet");
+    s = ld.apply(s, { type: "bid", q: 2, face: 3 }, A);
+    expect(ld.validate(s, { type: "bid", q: 2, face: 3 }, B)).toMatch(/Bid higher/);
+    expect(ld.validate(s, { type: "bid", q: 2, face: 2 }, B)).toMatch(/Bid higher/);
+    expect(ld.validate(s, { type: "bid", q: 2, face: 4 }, B)).toBeNull();
+    expect(ld.validate(s, { type: "bid", q: 3, face: 1 }, B)).toBeNull();
+    expect(ld.validate(s, { type: "bid", q: 11, face: 1 }, B)).toMatch(/aren't that many/);
+  });
+
+  it("a true bid costs the caller a die; a bluff costs the bidder", () => {
+    const start = rig([1, 1, 2, 3, 4], [2, 2, 5, 6, 6]); // three 2s in total
+    const truthful = ld.apply(ld.apply(start, { type: "bid", q: 3, face: 2 }, A), { type: "call" }, B);
+    expect(truthful.reveal).toMatchObject({ count: 3, caller: 1, loser: 1 });
+    expect((ld.viewFor(truthful, A) as LiarsDiceView).counts).toEqual([5, 4]);
+    expect(ld.turn(truthful)).toBe(B); // the loser opens the next round
+    expect(truthful.round).toBe(2);
+    expect(truthful.bid).toBeNull();
+    // The showdown shows everyone's dice from the round that just ended.
+    expect((ld.viewFor(truthful, B) as LiarsDiceView).reveal!.dice).toEqual(start.dice);
+
+    const bluff = ld.apply(ld.apply(start, { type: "bid", q: 4, face: 2 }, A), { type: "call" }, B);
+    expect(bluff.reveal).toMatchObject({ count: 3, loser: 0 });
+    expect((ld.viewFor(bluff, A) as LiarsDiceView).counts).toEqual([4, 5]);
+  });
+
+  it("losing your last die loses the game", () => {
+    const s = rig([3], [4, 4]);
+    const end = ld.apply(ld.apply(s, { type: "bid", q: 3, face: 4 }, A), { type: "call" }, B);
+    expect(ld.winner(end)).toBe(B);
+    expect((ld.viewFor(end, A) as LiarsDiceView).counts).toEqual([0, 2]);
+  });
+
+  it("the hard computer calls an impossible bid and raises a likely one", () => {
+    const s = rig([1, 1, 1, 1, 1], [2, 3, 4, 5, 6]);
+    const wild = ld.apply(s, { type: "bid", q: 8, face: 6 }, A);
+    expect(ld.botMove!(wild, B, Math.random, "hard")).toEqual({ type: "call" });
+    const tame = ld.apply(s, { type: "bid", q: 1, face: 1 }, A);
+    expect(ld.botMove!(tame, B, Math.random, "hard").type).toBe("bid");
   });
 });
