@@ -20,6 +20,11 @@ import { tileMatch } from "./tilematch";
 import { dominoes } from "./dominoes";
 import { mancala } from "./mancala";
 import { matchsticks } from "./matchsticks";
+import { chess } from "./chess";
+import { checkers } from "./checkers";
+import { reversi } from "./reversi";
+import { goFish } from "./gofish";
+import { rps } from "./rps";
 import type { AnyEngine } from "./types";
 
 export const GAMES: Record<string, AnyEngine> = {
@@ -45,6 +50,11 @@ export const GAMES: Record<string, AnyEngine> = {
   [dominoes.id]: dominoes,
   [mancala.id]: mancala,
   [matchsticks.id]: matchsticks,
+  [chess.id]: chess,
+  [checkers.id]: checkers,
+  [reversi.id]: reversi,
+  [goFish.id]: goFish,
+  [rps.id]: rps,
 };
 
 export function getEngine(id: string): AnyEngine | undefined {

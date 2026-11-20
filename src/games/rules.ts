@@ -15,6 +15,8 @@ import { TURNS as TILE_TURNS } from "./tilematch";
 import { HAND as DOMINO_HAND } from "./dominoes";
 import { STONES } from "./mancala";
 import { ROWS as STICK_ROWS } from "./matchsticks";
+import { QUIET_LIMIT } from "./checkers";
+import { TARGET as RPS_TARGET } from "./rps";
 
 export interface Rules {
   title: string;
@@ -373,5 +375,83 @@ export const RULES: Record<string, Rules> = {
       "Leaving two equal rows is usually strong: whatever they do in one, you copy in the other.",
       "Near the end, try to leave an odd number of single sticks.",
     ],
+  },
+  chess: {
+    title: "Chess",
+    tagline: "The full game, every rule.",
+    goal: "Checkmate the other king: attack it so that it cannot escape.",
+    steps: [
+      "The room creator plays White and moves first. Your pieces start at the bottom of your screen.",
+      "Tap a piece to see where it can go, then tap the square.",
+      "Pawns move forward one square (two on their first move) and capture diagonally. Rooks move in straight lines, bishops diagonally, the queen both ways, the king one square, and knights jump in an L.",
+      "You may never leave your own king under attack. If your king is attacked you are in check and must deal with it.",
+      "Castling, en passant and pawn promotion all work. When a pawn reaches the far row you choose the new piece.",
+      "No legal move while not in check is stalemate — a draw. So are fifty moves with no capture or pawn move, and positions where nobody has enough pieces left to mate.",
+    ],
+    tips: [
+      "Bring your knights and bishops out early, then castle to tuck your king away.",
+      "Before every move, check what the other side's last move is threatening.",
+    ],
+  },
+  checkers: {
+    title: "Checkers",
+    tagline: "Jump, capture, crown a king.",
+    goal: "Capture every enemy piece, or leave them with no move.",
+    steps: [
+      "Pieces live on the dark squares. Yours start at the bottom and move diagonally forward, one square at a time.",
+      "Jump over an enemy piece next to you, into the empty square behind it, to capture it.",
+      "If you can capture, you must. If the same piece can jump again, it must keep going — tap each landing square in turn.",
+      "A piece that reaches the far row becomes a king (♛) and can move and jump backwards too.",
+      `${QUIET_LIMIT} moves in a row without a capture end the game as a draw.`,
+    ],
+    tips: [
+      "Keep your back row at home for as long as you can — it stops them getting kings.",
+      "Offer one piece to take two: forced captures can be used against your opponent.",
+    ],
+  },
+  reversi: {
+    title: "Reversi",
+    tagline: "Trap their discs to flip them.",
+    goal: "Have more discs of your colour on the board when nobody can move.",
+    steps: [
+      "Take turns placing one disc on an empty square.",
+      "Your disc must trap at least one line of their discs between it and another disc of yours — across, down or diagonally.",
+      "Every trapped disc flips to your colour. Dotted circles show where you can play and how many you would flip.",
+      "If you have no legal move, your turn is skipped.",
+      "The game ends when neither player can move. Most discs wins.",
+    ],
+    tips: [
+      "Corners can never be flipped back. Take them, and avoid the squares next to them.",
+      "Early on, flipping fewer discs often leaves you with more moves later.",
+    ],
+  },
+  gofish: {
+    title: "Go Fish",
+    tagline: "Ask for cards, collect sets.",
+    goal: "Collect the most sets of four. For 2 to 4 players.",
+    steps: [
+      "On your turn, tap a card in your hand, then tap the player you want to ask.",
+      "If they hold any cards of that rank, they must hand over all of them — and you ask again.",
+      "If they have none, you \"go fish\": you draw a card from the pond and your turn ends.",
+      "Fish out the very rank you asked for and you get another turn.",
+      "Four cards of the same rank make a set, which is laid down straight away.",
+      "When all the cards are in sets, whoever has the most sets wins.",
+    ],
+    tips: [
+      "Listen to what the others ask for — it tells you what they are holding.",
+      "Asking for a rank shows everyone that you hold it too.",
+    ],
+  },
+  rps: {
+    title: "Rock Paper Scissors",
+    tagline: "Pick together, first to three.",
+    goal: `Win ${RPS_TARGET} rounds before your opponent does.`,
+    steps: [
+      "Each round, both players pick rock, paper or scissors in secret.",
+      "Both picks are shown at the same moment.",
+      "Rock beats scissors, scissors beats paper, paper beats rock.",
+      "The same pick is a tie: nobody scores and you go again.",
+    ],
+    tips: ["People rarely throw the same thing three times running.", "Losers tend to switch to whatever would have beaten them."],
   },
 };

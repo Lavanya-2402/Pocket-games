@@ -24,6 +24,11 @@ import { TileMatchBoard } from "./tilematch-board";
 import { DominoesBoard } from "./dominoes-board";
 import { MancalaBoard } from "./mancala-board";
 import { MatchsticksBoard } from "./matchsticks-board";
+import { ChessBoard } from "./chess-board";
+import { CheckersBoard } from "./checkers-board";
+import { ReversiBoard } from "./reversi-board";
+import { GoFishBoard } from "./gofish-board";
+import { RpsBoard } from "./rps-board";
 
 /** What every game board receives. Seats are game seats (index into state.players). */
 export interface BoardProps {
@@ -126,4 +131,9 @@ export const GAME_UI: Record<string, GameUI> = {
   dominoes: { Board: DominoesBoard, fit: WIDE },
   mancala: { Board: MancalaBoard, fit: WIDE, mark: () => "●" },
   matchsticks: { Board: MatchsticksBoard, fit: WIDE },
+  chess: { Board: ChessBoard, fit: "fit-tall", mark: (s) => (s === 0 ? "♔" : "♚"), turnWord: "move" },
+  checkers: { Board: CheckersBoard, fit: "fit-square", mark: () => "●" },
+  reversi: { Board: ReversiBoard, fit: "fit-tall", mark: () => "●" },
+  gofish: { Board: GoFishBoard, fit: WIDE },
+  rps: { Board: RpsBoard, fit: WIDE, status: lockIn("make your pick") },
 };

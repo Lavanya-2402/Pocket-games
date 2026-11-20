@@ -54,4 +54,9 @@ export const CATALOG: GameEntry[] = [
   { id: "dominoes", name: "Dominoes", tagline: "Match the ends of the line", icon: "🁫", group: "tiles" },
   { id: "mancala", name: "Mancala", tagline: "Sow stones, fill your store", icon: "🥣", group: "strategy" },
   { id: "matchsticks", name: "Matchsticks", tagline: "Don't take the last one", icon: "🔥", group: "strategy" },
+  { id: "chess", name: "Chess", tagline: "The full game, every rule", icon: "♞", group: "strategy" },
+  { id: "checkers", name: "Checkers", tagline: "Jump, capture, crown a king", icon: "⛂", group: "strategy" },
+  { id: "reversi", name: "Reversi", tagline: "Trap their discs to flip them", icon: "⚪", group: "strategy" },
+  { id: "gofish", name: "Go Fish", tagline: "Ask for cards, collect sets", icon: "🐟", group: "cards" },
+  { id: "rps", name: "Rock Paper Scissors", tagline: "Pick together, first to three", icon: "✊", group: "mind" },
 ];
