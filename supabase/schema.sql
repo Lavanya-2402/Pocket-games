@@ -22,6 +22,7 @@ create table if not exists room_players (
   unique (room_code, seat)
 );
 
+-- No longer written to (the move list is kept with each game); cleared by housekeeping.
 create table if not exists moves (
   id          bigserial primary key,
   room_code   text not null references rooms(code) on delete cascade,

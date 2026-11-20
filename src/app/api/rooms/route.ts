@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getEngine } from "@/games";
 import { begin, BOT_ID, botTurns, newRoomMeta, wrap, type RoomOptions } from "@/games/runner";
 import { profileSchema, resolvePlayer } from "@/lib/accounts";
-import { db, handle, HttpError, identity, parseBody, playerRow, randomCode } from "@/lib/server";
+import { db, handle, HttpError, identity, parseBody, playerRow, randomCode, tidyLater } from "@/lib/server";
 
 const optionsSchema = z.object({
   bestOf: z.union([z.literal(1), z.literal(3), z.literal(5)]).default(1),
@@ -49,6 +49,7 @@ export function POST(req: Request) {
       }
       const { error: pErr } = await db().from("room_players").insert(rows);
       if (pErr) throw pErr;
+      tidyLater();
       return Response.json({ code });
     }
     throw new HttpError(503, "Could not allocate a room code");

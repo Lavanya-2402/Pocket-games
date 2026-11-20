@@ -2,13 +2,13 @@ import { z } from "zod";
 import { getEngine } from "@/games";
 import { outcome, playerMove, unwrap } from "@/games/runner";
 import {
-  authPlayer, codeSchema, commit, db, handle, HttpError, identity, loadRoom,
+  authPlayer, codeSchema, commit, handle, HttpError, identity, loadRoom,
   parseBody, roomView,
 } from "@/lib/server";
 
 const bodySchema = z.object({ move: z.unknown(), version: z.number().int() });
 
-/** Server-authoritative move: validate → apply → save (optimistic lock) → log → broadcast. */
+/** Server-authoritative move: validate → apply → save (optimistic lock) → broadcast. */
 export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/move">) {
   return handle(async () => {
     const code = (await ctx.params).code.toUpperCase();
@@ -44,9 +44,6 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/move">) 
         if (simultaneous && attempt < 3 && e instanceof HttpError && e.status === 409) continue;
         throw e;
       }
-      await db().from("moves")
-        .insert({ room_code: code, player_id: who.id, move: parsed.data, version: next.version })
-        .then(({ error }) => error && console.error("move log failed", error));
       return Response.json(roomView(next, players, who.id));
     }
   });

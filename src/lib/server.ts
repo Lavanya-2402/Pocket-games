@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 import { z } from "zod";
 import { getEngine } from "@/games";
 import { BOT_ID, botTurns, outcome, unwrap, waitingOn, wrap, type Meta } from "@/games/runner";
@@ -210,9 +211,17 @@ export async function commit(
   const version = await saveState(room.code, room.version, stored);
   const saved: RoomRow = { ...room, state: stored, version };
   const jobs: Promise<unknown>[] = [broadcast(saved, players)];
-  if (r.meta.resultId && r.meta.resultId !== before.resultId) jobs.push(recordResult(saved, players, r.state, r.meta));
+  if (r.meta.resultId && r.meta.resultId !== before.resultId) {
+    jobs.push(recordResult(saved, players, r.state, r.meta));
+    tidyLater(); // a game just ended: a good moment to clear out old data
+  }
   await Promise.all(jobs);
   return saved;
+}
+
+/** Housekeeping, after the reply has gone out. Imported lazily to avoid a circular import. */
+export function tidyLater() {
+  after(async () => (await import("./cleanup")).cleanupNowAndThen());
 }
 
 /** File a finished game in the results table (win/loss records, leaderboards, replays). */
