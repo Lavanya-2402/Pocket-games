@@ -20,6 +20,10 @@ import { YachtBoard } from "./yacht-board";
 import { GreedyBoard } from "./greedy-board";
 import { LudoBoard } from "./ludo-board";
 import { ClimbBoard } from "./climb-board";
+import { TileMatchBoard } from "./tilematch-board";
+import { DominoesBoard } from "./dominoes-board";
+import { MancalaBoard } from "./mancala-board";
+import { MatchsticksBoard } from "./matchsticks-board";
 
 /** What every game board receives. Seats are game seats (index into state.players). */
 export interface BoardProps {
@@ -118,4 +122,8 @@ export const GAME_UI: Record<string, GameUI> = {
   greedy: { Board: GreedyBoard, fit: WIDE, turnWord: "roll" },
   ludo: { Board: LudoBoard, fit: "fit-tall" },
   climb: { Board: ClimbBoard, fit: "fit-tall", turnWord: "roll" },
+  tilematch: { Board: TileMatchBoard, fit: "fit-tall" },
+  dominoes: { Board: DominoesBoard, fit: WIDE },
+  mancala: { Board: MancalaBoard, fit: WIDE, mark: () => "●" },
+  matchsticks: { Board: MatchsticksBoard, fit: WIDE },
 };

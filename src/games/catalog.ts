@@ -24,6 +24,8 @@ export const GROUPS: GameGroup[] = [
   { id: "hunt", name: "Hide & hunt", blurb: "Find what the others are hiding", color: "var(--g-hunt)" },
   { id: "cards", name: "Cards", blurb: "Empty your hand first", color: "var(--g-cards)" },
   { id: "dice", name: "Dice", blurb: "Roll, risk it, race", color: "var(--g-dice)" },
+  { id: "tiles", name: "Tiles", blurb: "Match them, chain them, clear them", color: "var(--g-tiles)" },
+  { id: "strategy", name: "Strategy", blurb: "Think a few moves ahead", color: "var(--g-strategy)" },
 ];
 
 export const CATALOG: GameEntry[] = [
@@ -48,4 +50,8 @@ export const CATALOG: GameEntry[] = [
   { id: "greedy", name: "Greedy Dice", tagline: "Roll again, or bank it?", icon: "🤑", group: "dice" },
   { id: "ludo", name: "Ludo", tagline: "Race your pieces home", icon: "🏠", group: "dice" },
   { id: "climb", name: "Climb & Slide", tagline: "Ropes up, slides down", icon: "🪜", group: "dice" },
+  { id: "tilematch", name: "Tile Match", tagline: "Swap tiles, line up three", icon: "💎", group: "tiles" },
+  { id: "dominoes", name: "Dominoes", tagline: "Match the ends of the line", icon: "🁫", group: "tiles" },
+  { id: "mancala", name: "Mancala", tagline: "Sow stones, fill your store", icon: "🥣", group: "strategy" },
+  { id: "matchsticks", name: "Matchsticks", tagline: "Don't take the last one", icon: "🔥", group: "strategy" },
 ];

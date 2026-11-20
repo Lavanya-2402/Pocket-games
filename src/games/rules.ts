@@ -11,6 +11,10 @@ import { FLEET, SHIP_NAMES, SIZE } from "./seabattle";
 import { TARGET as GREEDY_TARGET } from "./greedy";
 import { LAST as CLIMB_LAST } from "./climb";
 import { ROLLS as YACHT_ROLLS } from "./yacht";
+import { TURNS as TILE_TURNS } from "./tilematch";
+import { HAND as DOMINO_HAND } from "./dominoes";
+import { STONES } from "./mancala";
+import { ROWS as STICK_ROWS } from "./matchsticks";
 
 export interface Rules {
   title: string;
@@ -305,5 +309,69 @@ export const RULES: Record<string, Rules> = {
       "You don't need an exact roll to finish.",
     ],
     tips: ["It is all luck — perfect for playing with younger children.", "The slide on 62 is the cruel one."],
+  },
+  tilematch: {
+    title: "Tile Match",
+    tagline: "Swap tiles, line up three.",
+    goal: `Score the most points in ${TILE_TURNS} turns each. For 2 to 4 players, all on the same board.`,
+    steps: [
+      "On your turn, tap a tile, then tap a tile next to it. They swap places.",
+      "The swap must line up three or more of the same tile, across or down.",
+      "Lined-up tiles clear and score 1 point each. The tiles above fall and new ones drop in.",
+      "If the falling tiles make new lines, those clear too — and score double, then triple, and so on.",
+      "If no swap is possible anywhere, the board is dealt again.",
+    ],
+    tips: [
+      "Swaps near the bottom move more tiles, so they start more chains.",
+      "Look at what your swap leaves for the next player, not just what it scores.",
+    ],
+  },
+  dominoes: {
+    title: "Dominoes",
+    tagline: "Match the ends of the line.",
+    goal: "Be the first to play all your tiles. For 2 to 4 players.",
+    steps: [
+      `Everyone starts with ${DOMINO_HAND} tiles. The rest form the pile.`,
+      "On your turn, play a tile with a number that matches either end of the line on the table.",
+      "If a tile fits both ends, you choose which.",
+      "No tile fits? Draw from the pile until one does. If the pile is empty, you pass.",
+      "Play your last tile and you win.",
+      "If nobody can move, the player whose remaining tiles add up to the fewest pips wins.",
+    ],
+    tips: [
+      "Play your heavy tiles early, in case the game gets stuck.",
+      "Doubles fit in fewer places — don't hold on to them.",
+    ],
+  },
+  mancala: {
+    title: "Mancala",
+    tagline: "Sow stones, fill your store.",
+    goal: "Collect more stones in your store than your opponent.",
+    steps: [
+      `Each pit starts with ${STONES} stones. Your six pits are the bottom row; your store is on the right.`,
+      "Tap one of your pits. Its stones are dropped one by one into the next pits, anticlockwise, including your store but never your opponent's.",
+      "If your last stone lands in your store, you go again.",
+      "If your last stone lands in an empty pit on your side, you capture it and everything in the pit opposite.",
+      "When one side has no stones left, the other player keeps what is still on their side. Most stones wins.",
+    ],
+    tips: [
+      "Count before you tap: a pit with exactly enough stones to reach your store gives you another turn.",
+      "An empty pit on your side is a trap waiting to be sprung.",
+    ],
+  },
+  matchsticks: {
+    title: "Matchsticks",
+    tagline: "Don't take the last one.",
+    goal: "Leave your opponent to take the very last stick.",
+    steps: [
+      `There are ${STICK_ROWS.length} rows, of ${STICK_ROWS.join(", ")} sticks.`,
+      "On your turn, take as many sticks as you like — but all from one row.",
+      "Tap a stick to take it and every stick to its right, then confirm.",
+      "Whoever has to take the last stick loses.",
+    ],
+    tips: [
+      "Leaving two equal rows is usually strong: whatever they do in one, you copy in the other.",
+      "Near the end, try to leave an odd number of single sticks.",
+    ],
   },
 };
