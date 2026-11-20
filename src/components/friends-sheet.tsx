@@ -1,24 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { recentPlayers, type RecentPlayer } from "@/lib/client";
 import { friendAction, useSession, type FriendAction, type Person } from "@/lib/session";
 import { Avatar, ghostBtn, inputClass, primaryBtn, Sheet } from "./ui";
 
 /** Friends list, requests, and invites. With `roomCode`, friends get an Invite button. */
 export function FriendsSheet({
-  open, onClose, roomCode, onNeedAccount,
+  open, onClose, roomCode, onNeedAccount, onPlayAgain,
 }: {
   open: boolean;
   onClose: () => void;
   roomCode?: string;
   onNeedAccount: () => void;
+  /** Start a new room of the same game with someone you played before. */
+  onPlayAgain?: (p: RecentPlayer) => void;
 }) {
   const { username, social, online } = useSession();
   const [add, setAdd] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [sent, setSent] = useState<Set<string>>(new Set());
+  const [recent, setRecent] = useState<RecentPlayer[]>([]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is client-only
+  useEffect(() => setRecent(open ? recentPlayers() : []), [open]);
 
   async function run(body: FriendAction, ok?: string) {
     setBusy(true);
@@ -124,6 +130,44 @@ export function FriendsSheet({
           </ul>
         )}
       </section>
+
+      {!roomCode && recent.length > 0 && (
+        <section>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Recently played with</h3>
+          <ul>
+            {recent.map((p) => {
+              const isFriend = social.friends.some((f) => f.id === p.id);
+              const asked = social.outgoing.some((f) => f.id === p.id) || sent.has(`add-${p.id}`);
+              return (
+                <li key={p.id} className="flex items-center gap-3 py-1.5">
+                  <Avatar avatar={p.avatar} color={p.color} size={40} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold">{p.name}</div>
+                    <div className="truncate text-xs text-muted">{p.gameName}{isFriend ? " · friend" : ""}</div>
+                  </div>
+                  {!isFriend && (
+                    <button
+                      disabled={busy || asked}
+                      className={`${small} border border-line`}
+                      onClick={async () => {
+                        await run({ action: "add", id: p.id }, `Friend request sent to ${p.name}`);
+                        setSent((s) => new Set(s).add(`add-${p.id}`));
+                      }}
+                    >
+                      {asked ? "Asked ✓" : "Add friend"}
+                    </button>
+                  )}
+                  {onPlayAgain && (
+                    <button disabled={busy} className={`${small} bg-accent text-accent-ink`} onClick={() => onPlayAgain(p)}>
+                      Play again
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {social.outgoing.length > 0 && (
         <section>

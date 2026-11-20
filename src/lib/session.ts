@@ -20,6 +20,7 @@ interface State {
   ready: boolean; // localStorage has been read
   profile: Profile;
   username: string | null; // null = guest
+  owner: boolean; // may open the owner page
   social: Social;
   online: ReadonlySet<string>; // account ids with the app open
 }
@@ -29,6 +30,7 @@ const INITIAL: State = {
   ready: false,
   profile: { name: "", avatar: "🦊", color: "coral" },
   username: null,
+  owner: false,
   social: NO_SOCIAL,
   online: new Set(),
 };
@@ -74,7 +76,7 @@ function becomeGuest() {
   clearIdentity();
   localStorage.removeItem("pg.user");
   disconnect();
-  set({ username: null, social: NO_SOCIAL, online: new Set() });
+  set({ username: null, owner: false, social: NO_SOCIAL, online: new Set() });
 }
 
 let started = false;
@@ -84,9 +86,10 @@ function start() {
   const username = localStorage.getItem("pg.user");
   set({ ready: true, profile: localProfile(), username });
   if (!username) return;
-  api<{ account: Person }>("/account/me")
-    .then(({ account }) => {
+  api<{ account: Person; owner: boolean }>("/account/me")
+    .then(({ account, owner }) => {
       adopt(account);
+      set({ owner });
       connect();
       refreshSocial();
     })
@@ -108,10 +111,11 @@ export function useSession() {
   return s;
 }
 
-interface LoginPayload { id: string; secret: string; account: Person }
+interface LoginPayload { id: string; secret: string; account: Person; owner: boolean }
 function signedIn(p: LoginPayload) {
   setIdentity(p.id, p.secret);
   adopt(p.account);
+  set({ owner: p.owner });
   connect();
   refreshSocial();
 }
@@ -155,10 +159,14 @@ export async function refreshSocial() {
 }
 
 export type FriendAction =
-  | { action: "add"; username: string }
+  | { action: "add"; username?: string; id?: string }
   | { action: "accept" | "remove"; id: string }
   | { action: "invite"; id: string; code: string }
   | { action: "dismiss"; invite: number };
+
+export async function changePassword(current: string, next: string) {
+  await api("/account/password", { current, next });
+}
 
 export async function friendAction(body: FriendAction) {
   set({ social: await api<Social>("/friends", body) });

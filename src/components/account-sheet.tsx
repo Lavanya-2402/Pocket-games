@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { AVATARS, COLOR_KEYS, COLORS, type Profile } from "@/lib/profile";
-import { login, logout, register, resetPassword, saveProfile, useSession } from "@/lib/session";
+import { changePassword, login, logout, register, resetPassword, saveProfile, useSession } from "@/lib/session";
 import { Avatar, ghostBtn, inputClass, primaryBtn, Sheet } from "./ui";
 
 export type AccountTab = "profile" | "account";
@@ -120,8 +121,59 @@ function ProfileForm({ prompt, onSaved }: { prompt?: string; onSaved: () => void
 
 type Mode = "signup" | "login" | "reset";
 
+function ChangePassword() {
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  if (!open) {
+    return (
+      <>
+        <button className={ghostBtn} onClick={() => setOpen(true)}>Change password</button>
+        {note && <p role="status" className="text-sm">{note}</p>}
+      </>
+    );
+  }
+  return (
+    <form
+      className="flex flex-col gap-2 rounded-2xl border border-line p-3"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setNote("");
+        try {
+          await changePassword(current, next);
+          setCurrent("");
+          setNext("");
+          setOpen(false);
+          setNote("Password changed. Your other phones were logged out.");
+        } catch (err) {
+          setNote((err as Error).message);
+        }
+        setBusy(false);
+      }}
+    >
+      <input
+        value={current} onChange={(e) => setCurrent(e.target.value)} type="password"
+        placeholder="Current password" aria-label="Current password" autoComplete="current-password" className={inputClass}
+      />
+      <input
+        value={next} onChange={(e) => setNext(e.target.value)} type="password"
+        placeholder="New password (6+ characters)" aria-label="New password" autoComplete="new-password" className={inputClass}
+      />
+      {note && <p role="alert" className="text-sm text-x">{note}</p>}
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" className={ghostBtn} onClick={() => setOpen(false)}>Cancel</button>
+        <button disabled={busy || !current || next.length < 6} className={primaryBtn}>Change</button>
+      </div>
+    </form>
+  );
+}
+
 function AccountForm({ onDone }: { onDone: () => void }) {
-  const { username, profile } = useSession();
+  const { username, profile, owner } = useSession();
   const [mode, setMode] = useState<Mode>("signup");
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
@@ -142,6 +194,12 @@ function AccountForm({ onDone }: { onDone: () => void }) {
         <p className="text-sm text-muted">
           Friends add you by your username. Your profile follows you to any phone you log in on.
         </p>
+        <ChangePassword />
+        {owner && (
+          <Link href="/owner" onClick={onDone} className={`${ghostBtn} flex items-center justify-center`}>
+            🛠 Owner tools
+          </Link>
+        )}
         <button
           className={ghostBtn}
           disabled={busy}

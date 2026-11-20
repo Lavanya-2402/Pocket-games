@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError, getName, localProfile, me, realtime, type RoomView } from "@/lib/client";
+import { api, ApiError, getName, localProfile, me, realtime, rememberPlayer, type RoomView } from "@/lib/client";
 import { AVATARS, COLOR_KEYS } from "@/lib/profile";
-import { saveProfile, useSession } from "@/lib/session";
+import { friendAction, saveProfile, useSession } from "@/lib/session";
 import { AccountSheet, type AccountTab } from "@/components/account-sheet";
 import { FriendsSheet } from "@/components/friends-sheet";
 import { Avatar } from "@/components/ui";
@@ -269,6 +269,15 @@ export function Room({ code }: { code: string }) {
       const myId = me().id;
       const seated = viewRef.current?.players.some((p) => p.id === myId);
       play(winner === "draw" ? "draw" : !seated || winner === myId ? "win" : "lose");
+      // Remember who you played, for "Recently played with" on the home screen.
+      const v = viewRef.current;
+      if (v && seated) {
+        for (const p of v.players) {
+          if (p.id !== myId && p.id !== BOT_ID) {
+            rememberPlayer({ id: p.id, name: p.name, avatar: p.avatar, color: p.color, game: v.game, gameName: v.gameName, at: Date.now() });
+          }
+        }
+      }
     }
     if (viewRef.current?.state || winner !== null) prevWinner.current = winner;
   }, [winner, view?.state]);
@@ -406,6 +415,20 @@ export function Room({ code }: { code: string }) {
     setAccountTab(t);
     setSheet("account");
   };
+  // After a game: one tap to befriend the person you just played.
+  const rival = isPlayer && !vsComputer ? view.players.find((p) => p.id !== myId) : undefined;
+  const knowsRival = !!rival && [...session.social.friends, ...session.social.outgoing, ...session.social.incoming]
+    .some((f) => f.id === rival.id);
+  async function addRival() {
+    if (!rival) return;
+    if (!session.username) return openAccount("account");
+    try {
+      await friendAction({ action: "add", id: rival.id });
+      setError(`Friend request sent to ${rival.name}`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   return (
     <div className="mx-auto grid w-full max-w-md grid-cols-1 gap-3 lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-x-8">
@@ -570,6 +593,11 @@ export function Room({ code }: { code: string }) {
         {view.winner && isPlayer && (
           <button onClick={rematch} className="h-14 rounded-2xl bg-accent font-semibold text-accent-ink rise">
             {series.done ? "New match" : options.bestOf > 1 ? "Next game" : "Rematch"}
+          </button>
+        )}
+        {view.winner && rival && !knowsRival && (
+          <button onClick={addRival} className="self-center text-sm underline">
+            ＋ Add {rival.name} as a friend
           </button>
         )}
         {view.winner && view.replayId && (

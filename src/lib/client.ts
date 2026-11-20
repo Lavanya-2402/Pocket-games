@@ -85,3 +85,24 @@ export function clearIdentity() {
   localStorage.removeItem("pg.id");
   localStorage.removeItem("pg.secret");
 }
+
+// ---- People you recently played with (kept on this phone) ----
+
+export interface RecentPlayer { id: string; name: string; avatar: string | null; color: string | null; game: string; gameName: string; at: number }
+
+export function recentPlayers(): RecentPlayer[] {
+  try {
+    return JSON.parse(localStorage.getItem("pg.recent") ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+export function rememberPlayer(p: RecentPlayer) {
+  try {
+    const list = [p, ...recentPlayers().filter((x) => x.id !== p.id)].slice(0, 8);
+    localStorage.setItem("pg.recent", JSON.stringify(list));
+  } catch {
+    /* private mode */
+  }
+}

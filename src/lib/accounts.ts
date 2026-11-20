@@ -61,9 +61,15 @@ export const publicAccount = (a: Account) => ({
   id: a.id, username: a.username, name: a.display_name, avatar: a.avatar, color: a.color,
 });
 
+/** Owners are named in the OWNER_USERNAMES setting (comma-separated usernames). */
+export function isOwner(a: Pick<Account, "username">) {
+  const names = (process.env.OWNER_USERNAMES ?? "").toLowerCase().split(",").map((n) => n.trim()).filter(Boolean);
+  return names.includes(a.username);
+}
+
 /** What the phone needs after signing up / logging in. */
 export async function loginPayload(a: Account) {
-  return { id: a.id, secret: await newSession(a.id), account: publicAccount(a) };
+  return { id: a.id, secret: await newSession(a.id), account: publicAccount(a), owner: isOwner(a) };
 }
 
 export function setupError(error: { code?: string } | null): never {

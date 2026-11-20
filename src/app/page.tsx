@@ -11,7 +11,7 @@ import { RulesCard } from "@/components/how-to-play";
 import { Avatar, Sheet } from "@/components/ui";
 import { CATALOG, GROUPS, type GameEntry } from "@/games/catalog";
 import type { RoomOptions } from "@/games/runner";
-import { api, localProfile } from "@/lib/client";
+import { api, localProfile, type RecentPlayer } from "@/lib/client";
 import { friendAction, useSession } from "@/lib/session";
 
 export default function Home() {
@@ -47,6 +47,21 @@ export default function Home() {
     // This page stays alive in the background after navigating, so leave it tidy.
     setBusy(null);
     setNewGame(null);
+  }
+
+  /** New room of the same game; a friend also gets an invite on their phone. */
+  async function playAgain(p: RecentPlayer) {
+    setSheet(null);
+    setError("");
+    try {
+      const { code } = await api<{ code: string }>("/rooms", { game: p.game, ...localProfile() });
+      if (social.friends.some((f) => f.id === p.id)) {
+        await friendAction({ action: "invite", id: p.id, code }).catch(() => {});
+      }
+      router.push(`/r/${code}`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   function join(e: React.FormEvent) {
@@ -218,6 +233,7 @@ export default function Home() {
       <FriendsSheet
         open={sheet === "friends"}
         onClose={() => setSheet(null)}
+        onPlayAgain={playAgain}
         onNeedAccount={() => {
           setTab("account");
           setSheet("account");

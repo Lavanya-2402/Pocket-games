@@ -56,7 +56,7 @@ export function GET(req: Request) {
 
 const uuid = z.uuid();
 const bodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("add"), username: usernameSchema }),
+  z.object({ action: z.literal("add"), username: usernameSchema.optional(), id: uuid.optional() }),
   z.object({ action: z.literal("accept"), id: uuid }),
   z.object({ action: z.literal("remove"), id: uuid }), // also declines / cancels a request
   z.object({ action: z.literal("invite"), id: uuid, code: codeSchema }),
@@ -73,10 +73,14 @@ export function POST(req: Request) {
       `and(account_id.eq.${me.id},friend_id.eq.${id}),and(account_id.eq.${id},friend_id.eq.${me.id})`;
 
     if (body.action === "add") {
-      if (body.username === me.username) throw new HttpError(400, "That's you!");
-      const { data: target, error } = await db().from("accounts").select("id").eq("username", body.username).maybeSingle();
+      if (!body.username && !body.id) throw new HttpError(400, "Who do you want to add?");
+      if (body.username === me.username || body.id === me.id) throw new HttpError(400, "That's you!");
+      const lookup = db().from("accounts").select("id");
+      const { data: target, error } = await (body.id ? lookup.eq("id", body.id) : lookup.eq("username", body.username!)).maybeSingle();
       if (error) throw error;
-      if (!target) throw new HttpError(404, `No player called @${body.username}`);
+      if (!target) {
+        throw new HttpError(404, body.id ? "They're playing as a guest, so they can't be added yet" : `No player called @${body.username}`);
+      }
       const { data: existing, error: exErr } = await db().from("friends").select("account_id, status")
         .or(pair(target.id)).returns<Pick<FriendRow, "account_id" | "status">[]>();
       if (exErr) throw exErr;

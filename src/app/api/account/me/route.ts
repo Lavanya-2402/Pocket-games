@@ -1,11 +1,14 @@
 import { z } from "zod";
-import { ACCOUNT_COLS, profileSchema, publicAccount, requireAccount, type Account } from "@/lib/accounts";
+import { ACCOUNT_COLS, isOwner, profileSchema, publicAccount, requireAccount, type Account } from "@/lib/accounts";
 import { cleanAvatar, cleanColor } from "@/lib/profile";
 import { db, handle, identity, parseBody, sha256 } from "@/lib/server";
 
 /** The account this phone is logged in as (401 if it isn't). */
 export function GET(req: Request) {
-  return handle(async () => Response.json({ account: publicAccount(await requireAccount(req)) }));
+  return handle(async () => {
+    const me = await requireAccount(req);
+    return Response.json({ account: publicAccount(me), owner: isOwner(me) });
+  });
 }
 
 const bodySchema = z.union([profileSchema, z.object({ logout: z.literal(true) })]);
