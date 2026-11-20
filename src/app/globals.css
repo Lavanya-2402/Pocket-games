@@ -81,8 +81,15 @@ body {
 }
 .float-up { animation: float-up 2200ms ease-out forwards; }
 
+/* Gravity Flip: the board swings round a quarter turn. */
+@keyframes spin-in {
+  from { transform: rotate(-90deg) scale(0.92); }
+  to { transform: none; }
+}
+.spin-in { animation: spin-in 550ms cubic-bezier(0.3, 0.9, 0.3, 1.1) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .pop, .rise, .drop { animation: none; }
+  .pop, .rise, .drop, .spin-in { animation: none; }
   .float-up { animation: float-up 2200ms steps(1) forwards; }
 }
 

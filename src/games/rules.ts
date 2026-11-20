@@ -119,6 +119,37 @@ export const RULES: Record<string, Rules> = {
       "Build two lines at once so your opponent can only block one.",
     ],
   },
+  territory: {
+    title: "Territory",
+    tagline: "Place a piece, flip the neighbours.",
+    goal: "Own more squares than your opponent when the board is full.",
+    steps: [
+      "Each player starts with two pieces in the middle.",
+      "On your turn, place a piece on any empty square.",
+      "Every opponent piece touching it — including diagonally — flips to your colour.",
+      "Empty squares show how many pieces you would flip there.",
+      "When the board is full, the player with more squares wins.",
+    ],
+    tips: [
+      "A big flip can be flipped straight back — look at what your move leaves open.",
+      "Corners and edges touch fewer squares, so pieces there are harder to flip.",
+    ],
+  },
+  gravity: {
+    title: "Gravity Flip",
+    tagline: "Connect Four that can turn on its side.",
+    goal: "Get 4 of your discs in a row — across, down or diagonal.",
+    steps: [
+      "Take turns dropping a disc into a column; it falls to the lowest empty spot.",
+      "Once per game, instead of dropping, you may flip the board a quarter turn.",
+      "After a flip every disc falls to the new bottom, which can make or break lines.",
+      "If a flip gives both players four in a row at once, it's a draw.",
+    ],
+    tips: [
+      "Before you flip, picture each row as a column — that is what it becomes.",
+      "Holding your flip is a threat in itself; your opponent has to plan around it.",
+    ],
+  },
   colorrush: {
     title: "Color Rush",
     tagline: "Match colors. Empty your hand first.",

@@ -8,7 +8,9 @@ import { Connect4Board } from "./connect4-board";
 import { DotsBoard } from "./dots-board";
 import { DuelBoard } from "./duel-board";
 import { FiveBoard } from "./five-board";
+import { GravityBoard } from "./gravity-board";
 import { SeaBattleBoard } from "./seabattle-board";
+import { TerritoryBoard } from "./territory-board";
 import { TicTacToeBoard } from "./tictactoe-board";
 
 /** What every game board receives. Seats are game seats (index into state.players). */
@@ -81,6 +83,8 @@ export const GAME_UI: Record<string, GameUI> = {
   },
   dots: { Board: DotsBoard, fit: "fit-tall", mark: () => "■" },
   five: { Board: FiveBoard, fit: "fit-square", mark: () => "●" },
+  territory: { Board: TerritoryBoard, fit: "fit-tall", mark: () => "●" },
+  gravity: { Board: GravityBoard, fit: "fit-tall", mark: () => "●" },
   colorrush: {
     Board: (p) => <ColorRushBoard state={p.state} mySeat={p.mySeat} names={p.names} layout={p.layout} onMove={p.onMove} />,
     fit: WIDE,

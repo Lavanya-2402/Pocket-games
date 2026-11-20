@@ -27,9 +27,9 @@ export const CATALOG: GameEntry[] = [
   { id: "tictactoe", name: "Tic Tac Toe", tagline: "Three in a row", icon: "✕◯", group: "boards" },
   { id: "connect4", name: "Connect Four", tagline: "Drop discs, line up four", icon: "🔴", group: "boards" },
   { id: "dots", name: "Dots and Boxes", tagline: "Close a box, it's yours", icon: "🔳", group: "boards" },
-  { id: "territory", name: "Territory", tagline: "Flip their pieces", icon: "", group: "boards", soon: true },
+  { id: "territory", name: "Territory", tagline: "Flip their pieces", icon: "🟢", group: "boards" },
   { id: "five", name: "Five in a Row", tagline: "Big-board tic tac toe", icon: "⚫", group: "boards" },
-  { id: "gravity", name: "Gravity Flip", tagline: "Connect Four that rotates", icon: "", group: "boards", soon: true },
+  { id: "gravity", name: "Gravity Flip", tagline: "Connect Four that rotates", icon: "🔄", group: "boards" },
 
   { id: "bidtactoe", name: "Bid-Tac-Toe", tagline: "Outbid them for each square", icon: "🪙", group: "mind" },
   { id: "duel", name: "Duel", tagline: "Attack, defend or charge", icon: "⚔️", group: "mind" },
