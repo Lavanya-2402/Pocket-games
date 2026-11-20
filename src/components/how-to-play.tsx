@@ -21,7 +21,7 @@ export function RulesCard({ game, hideTitle = false }: { game: string; hideTitle
         <span className="font-semibold">Goal: </span>{r.goal}
       </p>
       <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">How to play</h4>
+        <h4 className="mb-2 font-display text-sm font-bold text-muted">How to play</h4>
         <ol className="flex flex-col gap-2 text-sm">
           {r.steps.map((s, i) => (
             <li key={i} className="flex gap-3">
@@ -34,7 +34,7 @@ export function RulesCard({ game, hideTitle = false }: { game: string; hideTitle
         </ol>
       </div>
       <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Tips</h4>
+        <h4 className="mb-2 font-display text-sm font-bold text-muted">Tips</h4>
         <ul className="flex flex-col gap-1.5 text-sm text-muted">
           {r.tips.map((t, i) => <li key={i}>💡 {t}</li>)}
         </ul>

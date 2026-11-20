@@ -1,5 +1,5 @@
 /**
- * The app icon: a dark rounded tile with a coral cross and a teal ring.
+ * The app icon: an indigo rounded tile with a coral cross and a teal ring.
  * Drawn with plain boxes so it needs no fonts or image files.
  * `maskable` adds the safe margin Android wants for adaptive icons.
  */
@@ -22,7 +22,7 @@ export function AppIcon({ size, maskable = false }: { size: number; maskable?: b
     <div style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div
         style={{
-          width: tile, height: tile, borderRadius: maskable ? 0 : tile * 0.24, background: "#1d1a16",
+          width: tile, height: tile, borderRadius: maskable ? 0 : tile * 0.24, background: "#23256b",
           display: "flex", alignItems: "center", justifyContent: "center", gap: tile * 0.09,
         }}
       >

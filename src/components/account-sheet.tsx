@@ -81,7 +81,7 @@ function ProfileForm({ prompt, onSaved }: { prompt?: string; onSaved: () => void
       </div>
 
       <fieldset>
-        <legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Avatar</legend>
+        <legend className="mb-2 font-display text-sm font-bold text-muted">Avatar</legend>
         <div className="grid grid-cols-8 gap-1.5">
           {AVATARS.map((a) => (
             <button
@@ -100,7 +100,7 @@ function ProfileForm({ prompt, onSaved }: { prompt?: string; onSaved: () => void
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Colour</legend>
+        <legend className="mb-2 font-display text-sm font-bold text-muted">Colour</legend>
         <div className="grid grid-cols-8 gap-1.5">
           {COLOR_KEYS.map((c) => (
             <button
@@ -127,7 +127,7 @@ function SettingsForm() {
   const [theme, setThemeState] = useState<Theme>(() => getTheme());
   const [skin, setSkinState] = useState<Skin>(() => getSkin());
   const [sound, setSound] = useState(() => !isMuted());
-  const label = "mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted";
+  const label = "mb-1.5 font-display text-sm font-bold text-muted";
   return (
     <div className="flex flex-col gap-4">
       <div>

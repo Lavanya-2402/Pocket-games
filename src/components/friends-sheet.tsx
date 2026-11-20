@@ -69,7 +69,7 @@ export function FriendsSheet({
     <Sheet open={open} onClose={onClose} title={roomCode ? "Invite a friend" : "Friends"}>
       {social.invites.length > 0 && !roomCode && (
         <section>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Invites</h3>
+          <h3 className="mb-1 font-display text-sm font-bold text-muted">Invites</h3>
           <ul>
             {social.invites.map((i) => row(i.from, (
               <span className="flex items-center gap-1">
@@ -89,7 +89,7 @@ export function FriendsSheet({
 
       {social.incoming.length > 0 && (
         <section>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Friend requests</h3>
+          <h3 className="mb-1 font-display text-sm font-bold text-muted">Friend requests</h3>
           <ul>
             {social.incoming.map((p) => row(p, (
               <span className="flex gap-1">
@@ -102,7 +102,7 @@ export function FriendsSheet({
       )}
 
       <section>
-        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">
+        <h3 className="mb-1 font-display text-sm font-bold text-muted">
           Friends · {social.friends.length}
         </h3>
         {friends.length === 0 ? (
@@ -133,7 +133,7 @@ export function FriendsSheet({
 
       {!roomCode && recent.length > 0 && (
         <section>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Recently played with</h3>
+          <h3 className="mb-1 font-display text-sm font-bold text-muted">Recently played with</h3>
           <ul>
             {recent.map((p) => {
               const isFriend = social.friends.some((f) => f.id === p.id);
@@ -171,7 +171,7 @@ export function FriendsSheet({
 
       {social.outgoing.length > 0 && (
         <section>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted">Waiting for them to accept</h3>
+          <h3 className="mb-1 font-display text-sm font-bold text-muted">Waiting for them to accept</h3>
           <ul>
             {social.outgoing.map((p) => row(p, (
               <button disabled={busy} className={`${small} border border-line text-muted`} onClick={() => run({ action: "remove", id: p.id })}>Cancel</button>

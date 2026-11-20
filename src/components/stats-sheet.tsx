@@ -52,7 +52,7 @@ function Body({ onClose }: { onClose: () => void }) {
   if (error) return <p role="alert" className="text-sm text-x">{error}</p>;
   if (!stats) return <p className="py-6 text-center text-muted">Loading…</p>;
 
-  const h = "mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted";
+  const h = "mb-1.5 font-display text-sm font-bold text-muted";
   const chip = { win: "bg-o text-white", loss: "bg-x text-white", draw: "bg-line text-ink" } as const;
   return (
     <>

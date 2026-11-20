@@ -60,7 +60,7 @@ function Form({
 
   const seg = (on: boolean) =>
     `h-11 rounded-xl text-sm font-semibold transition ${on ? "bg-surface shadow-sm" : "text-muted"}`;
-  const label = "mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted";
+  const label = "mb-1.5 font-display text-sm font-bold text-muted";
 
   return (
     <form

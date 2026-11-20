@@ -82,6 +82,6 @@ export function Sheet({
 export const inputClass =
   "h-12 w-full min-w-0 rounded-2xl border border-line bg-bg px-4 outline-none focus:border-ink";
 export const primaryBtn =
-  "h-12 rounded-2xl bg-accent px-5 font-semibold text-accent-ink transition active:scale-[0.98] disabled:opacity-40";
+  "chunk h-12 rounded-2xl bg-accent px-5 font-semibold text-accent-ink disabled:opacity-40";
 export const ghostBtn =
   "h-12 rounded-2xl border border-line px-5 font-semibold transition active:scale-[0.98] disabled:opacity-40";

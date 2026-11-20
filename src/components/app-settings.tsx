@@ -27,7 +27,7 @@ export function AppSettings() {
     pushIsOn().then(setOn).catch(() => setOn(false));
   }, []);
 
-  const label = "mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted";
+  const label = "mb-1.5 font-display text-sm font-bold text-muted";
   const installed = isInstalled();
   const supported = pushSupported();
 

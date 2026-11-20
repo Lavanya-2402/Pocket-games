@@ -77,7 +77,7 @@ export default function Home() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 rise">
       <header className="flex items-center gap-2">
-        <h1 className="mr-auto font-display text-xl font-extrabold tracking-tight whitespace-nowrap sm:text-3xl">Pocket Games</h1>
+        <h1 className="mr-auto font-display text-2xl leading-none font-black tracking-tight whitespace-nowrap sm:text-4xl">Pocket Games</h1>
         <button
           onClick={() => setSheet("stats")}
           aria-label="Records and leaderboard"
@@ -142,19 +142,20 @@ export default function Home() {
             aria-label="Room code"
             className="h-12 min-w-0 flex-1 rounded-2xl border border-line bg-surface px-4 font-display text-lg tracking-[0.15em] outline-none placeholder:font-sans placeholder:text-sm placeholder:tracking-normal focus:border-ink"
           />
-          <button className="h-12 rounded-2xl border border-ink px-5 font-semibold active:scale-[0.98] transition">Join</button>
+          <button className="chunk h-12 rounded-2xl bg-accent px-5 font-semibold text-accent-ink">Join</button>
         </form>
 
         <div role="tablist" aria-label="Game groups" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
-          {[{ id: "all", name: "All" }, ...GROUPS].map((g) => (
+          {[{ id: "all", name: "All", color: "" }, ...GROUPS].map((g) => (
             <button
               key={g.id}
               role="tab"
               aria-selected={group === g.id}
               onClick={() => setGroup(g.id)}
-              className={`h-9 shrink-0 rounded-full px-4 text-sm font-semibold transition
+              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold transition
                 ${group === g.id ? "bg-accent text-accent-ink" : "border border-line bg-surface"}`}
             >
+              {g.color && <span aria-hidden className="size-2.5 rounded-full" style={{ background: g.color }} />}
               {g.name}
             </button>
           ))}
@@ -163,21 +164,23 @@ export default function Home() {
 
       {error && <p role="alert" className="text-sm text-x">{error}</p>}
 
-      <div className={`grid gap-x-6 gap-y-4 ${groups.length > 1 ? "lg:grid-cols-2" : ""}`}>
+      <div className={`grid gap-x-6 gap-y-5 ${groups.length > 1 ? "lg:grid-cols-2" : ""}`}>
         {groups.map((g) => {
           const games = CATALOG.filter((x) => x.group === g.id);
           const soon = games.filter((x) => x.soon);
           return (
             <section key={g.id} className="flex flex-col gap-2">
               <h2 className="flex items-baseline gap-2">
-                <span className="font-display text-lg font-extrabold">{g.name}</span>
+                <span aria-hidden className="size-3 shrink-0 self-center rounded-full" style={{ background: g.color }} />
+                <span className="font-display text-lg leading-none font-extrabold">{g.name}</span>
                 <span className="truncate text-xs text-muted">{g.blurb}</span>
               </h2>
-              <div className={`grid grid-cols-2 gap-2.5 ${groups.length > 1 ? "" : "sm:grid-cols-3 lg:grid-cols-4"}`}>
+              <div className={`grid grid-cols-3 gap-x-2 gap-y-3 ${groups.length > 1 ? "sm:grid-cols-4 lg:grid-cols-3" : "sm:grid-cols-4 lg:grid-cols-6"}`}>
                 {games.filter((x) => !x.soon).map((x) => (
                   <GameTile
                     key={x.id}
                     game={x}
+                    color={g.color}
                     busy={busy === x.id}
                     disabled={busy !== null}
                     onPlay={() => withName(() => setNewGame(x.id))}
@@ -265,9 +268,10 @@ export default function Home() {
 }
 
 function GameTile({
-  game, busy, disabled, onPlay, onRules,
+  game, color, busy, disabled, onPlay, onRules,
 }: {
   game: GameEntry;
+  color: string;
   busy: boolean;
   disabled: boolean;
   onPlay: () => void;
@@ -279,31 +283,23 @@ function GameTile({
       <button
         onClick={onPlay}
         disabled={disabled}
-        className={`flex h-full min-h-20 w-full flex-col justify-between gap-1.5 rounded-2xl bg-accent p-3 text-left text-accent-ink transition active:scale-[0.98]
-          ${disabled && !busy ? "opacity-60" : ""}`}
+        style={{ "--face": color, background: color, color: "var(--tile-ink)" } as React.CSSProperties}
+        className={`chunk flex h-full min-h-[6.5rem] w-full flex-col gap-1 rounded-2xl p-2.5 text-left ${disabled && !busy ? "opacity-60" : ""}`}
       >
-        <span className="flex items-start justify-between gap-2">
-          <span className="font-display text-base leading-tight font-semibold sm:text-lg">{game.name}</span>
-          <span aria-hidden className="shrink-0 text-xl leading-none">
-            {game.icon === "✕◯" ? (
-              <span className="font-display font-extrabold">
-                <span className="text-x">✕</span>
-                <span className="text-o">◯</span>
-              </span>
-            ) : game.icon}
-          </span>
+        <span aria-hidden className="h-7 text-2xl leading-7">
+          {game.icon === "✕◯" ? <span className="font-display text-xl font-black tracking-tight">✕◯</span> : game.icon}
         </span>
-        <span className="line-clamp-2 pr-8 text-xs leading-snug opacity-70">
-          {maxPlayers > 2 && !busy && (
-            <span className="mr-1 rounded-md border border-accent-ink/30 px-1 text-[10px] font-bold whitespace-nowrap">2–{maxPlayers} players</span>
-          )}
-          {busy ? "Opening room…" : game.tagline}
+        <span className="font-display text-[15px] leading-[1.12] font-bold text-balance sm:text-base">{game.name}</span>
+        <span className="hidden text-xs leading-snug opacity-75 sm:block">{game.tagline}</span>
+        <span className="mt-auto text-[11px] font-semibold opacity-70">
+          {busy ? "Opening room…" : maxPlayers > 2 ? `2–${maxPlayers} players` : "2 players"}
         </span>
       </button>
       <button
         onClick={onRules}
         aria-label={`How to play ${game.name}`}
-        className="absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full border border-accent-ink/30 text-sm font-bold text-accent-ink"
+        style={{ color: "var(--tile-ink)" }}
+        className="absolute top-1.5 right-1.5 flex size-8 items-center justify-center rounded-full bg-white/45 text-sm font-bold"
       >
         ?
       </button>

@@ -365,7 +365,7 @@ export function Room({ code }: { code: string }) {
           placeholder="Your name"
           className="h-14 rounded-2xl border border-line bg-surface px-4 text-lg outline-none focus:border-ink"
         />
-        <button className="h-14 rounded-2xl bg-accent font-semibold text-accent-ink">Join</button>
+        <button className="chunk h-14 rounded-2xl bg-accent font-semibold text-accent-ink">Join</button>
       </form>
     );
   }
@@ -594,7 +594,7 @@ export function Room({ code }: { code: string }) {
             </p>
             <p className="font-display text-5xl font-extrabold tracking-[0.2em]">{code}</p>
             <div className="flex flex-wrap justify-center gap-2">
-              <button onClick={share} className="h-12 rounded-2xl bg-accent px-5 font-semibold text-accent-ink">Share link</button>
+              <button onClick={share} className="chunk h-12 rounded-2xl bg-accent px-5 font-semibold text-accent-ink">Share link</button>
               <button onClick={() => setSheet("friends")} className="h-12 rounded-2xl border border-ink px-5 font-semibold">
                 Invite a friend
               </button>
@@ -630,7 +630,7 @@ export function Room({ code }: { code: string }) {
         )}
 
         {view.winner && isPlayer && (
-          <button onClick={rematch} className="h-14 rounded-2xl bg-accent font-semibold text-accent-ink rise">
+          <button onClick={rematch} className="chunk h-14 rounded-2xl bg-accent font-semibold text-accent-ink rise">
             {series.done ? "New match" : options.bestOf > 1 ? "Next game" : "Rematch"}
           </button>
         )}

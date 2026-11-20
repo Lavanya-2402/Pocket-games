@@ -47,7 +47,7 @@ export function setTheme(t: Theme) {
   else root.dataset.theme = t;
   // Keep the browser's own bar in step with the page.
   const dark = t === "dark" || (t === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", dark ? "#14120f" : "#f4efe6"));
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", dark ? "#111230" : "#edeefa"));
 }
 
 export function getSkin(): Skin {

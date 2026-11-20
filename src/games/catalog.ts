@@ -4,6 +4,8 @@ export interface GameGroup {
   id: string;
   name: string;
   blurb: string;
+  /** Fill colour of this shelf's tiles (a CSS variable from globals.css). */
+  color: string;
 }
 
 export interface GameEntry {
@@ -17,10 +19,10 @@ export interface GameEntry {
 }
 
 export const GROUPS: GameGroup[] = [
-  { id: "boards", name: "Boards", blurb: "Line them up, claim the board" },
-  { id: "mind", name: "Mind games", blurb: "Secret picks, revealed together" },
-  { id: "hunt", name: "Hide & hunt", blurb: "Find what your opponent is hiding" },
-  { id: "cards", name: "Cards", blurb: "Empty your hand first" },
+  { id: "boards", name: "Boards", blurb: "Line them up, claim the board", color: "var(--g-boards)" },
+  { id: "mind", name: "Mind games", blurb: "Secret picks, revealed together", color: "var(--g-mind)" },
+  { id: "hunt", name: "Hide & hunt", blurb: "Find what the others are hiding", color: "var(--g-hunt)" },
+  { id: "cards", name: "Cards", blurb: "Empty your hand first", color: "var(--g-cards)" },
 ];
 
 export const CATALOG: GameEntry[] = [
