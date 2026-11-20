@@ -40,7 +40,7 @@ export function RulesCard({ game, hideTitle = false }: { game: string; hideTitle
 }
 
 /** A "How to play" button that opens the rules in a bottom sheet. */
-export function HowToPlayButton({ game, className = "" }: { game: string; className?: string }) {
+export function HowToPlayButton({ game, className = "", compact = false }: { game: string; className?: string; compact?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   if (!RULES[game]) return null;
   return (
@@ -48,9 +48,10 @@ export function HowToPlayButton({ game, className = "" }: { game: string; classN
       <button
         type="button"
         onClick={() => ref.current?.showModal()}
-        className={`rounded-full border border-line bg-surface px-4 py-2 text-sm ${className}`}
+        aria-label="How to play"
+        className={`shrink-0 rounded-full border border-line bg-surface ${compact ? "size-10 font-bold" : "px-4 py-2 text-sm"} ${className}`}
       >
-        How to play
+        {compact ? "?" : "How to play"}
       </button>
       <dialog
         ref={ref}

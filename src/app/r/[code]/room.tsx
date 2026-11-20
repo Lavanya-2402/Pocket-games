@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError, getName, me, realtime, setName, type RoomView } from "@/lib/client";
+import { api, ApiError, getName, localProfile, me, realtime, type RoomView } from "@/lib/client";
+import { AVATARS, COLOR_KEYS } from "@/lib/profile";
+import { saveProfile, useSession } from "@/lib/session";
+import { AccountSheet, type AccountTab } from "@/components/account-sheet";
+import { FriendsSheet } from "@/components/friends-sheet";
+import { Avatar } from "@/components/ui";
 import { missLimit } from "@/games/runner";
 import { isMuted, play, setMuted } from "@/lib/sound";
 import { usePeerLink, type Signal } from "@/lib/p2p";
@@ -29,7 +34,10 @@ import {
 const SIMULTANEOUS = new Set(["bidtactoe", "duel"]);
 
 export function Room({ code }: { code: string }) {
-  const [name, setNameState] = useState<string | null>(null);
+  const session = useSession();
+  const name = session.ready ? session.profile.name : null; // null = still reading this phone
+  const [sheet, setSheet] = useState<null | "friends" | "account">(null);
+  const [accountTab, setAccountTab] = useState<AccountTab>("account");
   const [view, setView] = useState<RoomView | null>(null);
   const [error, setError] = useState("");
   const [fatal, setFatal] = useState("");
@@ -138,13 +146,10 @@ export function Room({ code }: { code: string }) {
     }
   }, [accept, code]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is client-only
-  useEffect(() => setNameState(getName()), []);
-
   // Join (takes a seat if one is free, otherwise spectates).
   useEffect(() => {
     if (!name) return;
-    api(`/rooms/${code}/join`, { name })
+    api(`/rooms/${code}/join`, localProfile())
       .then(accept)
       .catch((e: ApiError) => setFatal(e.status === 404 ? "Room not found" : e.message));
   }, [name, code, accept]);
@@ -341,10 +346,7 @@ export function Room({ code }: { code: string }) {
         onSubmit={(e) => {
           e.preventDefault();
           const n = String(new FormData(e.currentTarget).get("name") ?? "").trim();
-          if (n) {
-            setName(n);
-            setNameState(n);
-          }
+          if (n) saveProfile({ ...session.profile, name: n });
         }}
       >
         <h1 className="font-display text-3xl font-extrabold">Joining room {code}</h1>
@@ -372,6 +374,9 @@ export function Room({ code }: { code: string }) {
   const roleOf = (id?: string) => (id ? gameOrder.indexOf(id) : -1);
   const gameSeat = myId && roleOf(myId) !== -1 ? roleOf(myId) : null;
   const gameNames: [string, string] = [nameOf(view, gameOrder[0] ?? null), nameOf(view, gameOrder[1] ?? null)];
+  // Game seats listed in room-seat order: lets boards keep each player in the same place every game.
+  const firstSeat = roleOf(view.players.find((p) => p.seat === 0)?.id) === 1 ? 1 : 0;
+  const layout: [number, number] = [firstSeat, 1 - firstSeat];
   const away = presenceReady && view.state && !view.winner
     ? view.players.filter((p) => p.id !== myId && !online.has(p.id))
     : [];
@@ -392,10 +397,26 @@ export function Room({ code }: { code: string }) {
   } else if (view.turn === myId) status = view.game === "seabattle" ? "Your shot" : "Your turn";
   else status = isPlayer ? `${opponent?.name ?? "Opponent"}'s turn` : `${nameOf(view, view.turn)}'s turn`;
 
+  const playing = view.state != null;
+  const fit = view.game === "tictactoe" || view.game === "connect4"
+    ? "fit-square"
+    : view.game === "seabattle" ? "w-full" : "mx-auto w-full lg:max-w-lg";
+  const openAccount = (t: AccountTab) => {
+    setAccountTab(t);
+    setSheet("account");
+  };
+
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-muted">← Home</Link>
+    <div className="mx-auto grid w-full max-w-md grid-cols-1 gap-3 lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-x-8">
+      <header className="flex items-center gap-2 lg:col-span-2">
+        <Link
+          href="/"
+          aria-label="Home"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface"
+        >
+          ←
+        </Link>
+        <span className="mr-auto min-w-0 truncate font-display text-lg font-extrabold"><span className="hidden sm:inline">{view.gameName}</span></span>
         {isPlayer && (
           <button
             onClick={() => {
@@ -404,10 +425,10 @@ export function Room({ code }: { code: string }) {
             }}
             aria-pressed={fastMode}
             aria-label={`Same Wi-Fi fast mode: ${!fastMode ? "off" : linkStatus === "direct" ? "connected" : "on, not connected"}`}
-            className={`ml-auto mr-2 flex h-10 items-center gap-1 rounded-full border px-3 text-xs font-semibold transition
+            className={`flex h-10 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold transition
               ${linkStatus === "direct" ? "border-o bg-o text-white" : "border-line bg-surface"} ${fastMode ? "" : "opacity-50"}`}
           >
-            ⚡ {!fastMode ? "Off" : linkStatus === "direct" ? "Direct" : linkStatus === "connecting" ? "…" : "Wi-Fi"}
+            ⚡<span className="hidden sm:inline">{!fastMode ? "Off" : linkStatus === "direct" ? "Direct" : linkStatus === "connecting" ? "…" : "Wi-Fi"}</span>
           </button>
         )}
         <button
@@ -418,158 +439,203 @@ export function Room({ code }: { code: string }) {
           }}
           aria-label={mutedState ? "Unmute sounds" : "Mute sounds"}
           aria-pressed={mutedState}
-          className={`${isPlayer ? "" : "ml-auto"} mr-2 size-10 shrink-0 rounded-full border border-line bg-surface text-lg`}
+          className="size-10 shrink-0 rounded-full border border-line bg-surface text-lg"
         >
           {mutedState ? "🔇" : "🔊"}
         </button>
+        <HowToPlayButton game={view.game} compact />
         <button
           onClick={share}
-          className="flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 text-sm"
+          aria-label={`Share room ${code}`}
+          className="flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-sm"
         >
-<span className="font-display font-extrabold tracking-[0.2em]">{code}</span> · Share
+          <span className="font-display font-extrabold tracking-[0.15em]">{code}</span>
+          <span aria-hidden>↗</span>
         </button>
       </header>
 
-      {/* Simultaneous games show their own player cards (coins / HP). */}
-      {!(SIMULTANEOUS.has(view.game) && view.state) && <div className="grid grid-cols-2 gap-3">
-        {[0, 1].map((s) => {
-          const p = seat(s);
-          const active = p && view.turn === p.id;
-          return (
-            <div
-              key={s}
-              className={`rounded-2xl border px-4 py-3 transition ${active ? "border-ink bg-surface" : "border-line"}`}
-            >
-              <div className={`font-display text-xl font-extrabold ${roleOf(p?.id) === 1 ? "text-o" : "text-x"}`}>
-                {view.state ? markFor(view, p?.id) : s === 0 ? "P1" : "P2"}
-              </div>
-              <div className="flex items-center gap-1.5 truncate text-sm">
-                {p && (
-                  <span
-                    aria-label={isOnline(p.id) ? "online" : "offline"}
-                    className={`size-2 shrink-0 rounded-full ${isOnline(p.id) ? "bg-o" : "bg-line ring-1 ring-muted"}`}
-                  />
-                )}
-                {p ? p.name : <span className="text-muted">waiting…</span>}
-                {p?.id === myId && <span className="text-muted"> (you)</span>}
-              </div>
+      {/* Who's playing, whose turn, and the clock. Beside the board on wide screens. */}
+      <section className="flex min-w-0 flex-col gap-3 lg:col-start-2 lg:row-start-2">
+        {/* Simultaneous games show their own player cards (coins / HP). */}
+        {!(SIMULTANEOUS.has(view.game) && view.state) && (
+          <div className="grid grid-cols-2 gap-2">
+            {[0, 1].map((s) => {
+              const p = seat(s);
+              const active = p && view.turn === p.id;
+              const look = p ? lookFor(p) : null;
+              return (
+                <div
+                  key={s}
+                  className={`flex min-w-0 items-center gap-2 rounded-2xl border px-2.5 py-2 transition ${active ? "border-ink bg-surface" : "border-line"}`}
+                >
+                  {look
+                    ? <Avatar avatar={look.avatar} color={look.color} size={36} online={isOnline(p!.id)} />
+                    : <span className="size-9 shrink-0 rounded-full border border-dashed border-muted" />}
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                    {p ? p.name : <span className="font-normal text-muted">waiting…</span>}
+                    {p?.id === myId && <span className="font-normal text-muted"> (you)</span>}
+                  </span>
+                  {playing && p && (
+                    <span className={`font-display text-lg leading-none font-extrabold ${roleOf(p.id) === 1 ? "text-o" : "text-x"}`}>
+                      {markFor(view, p.id)}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <p aria-live="polite" className="text-center font-display text-2xl font-extrabold lg:text-3xl">{status}</p>
+        {view.clock.forfeit && (
+          <p className="-mt-2 text-center text-sm text-muted">
+            {view.clock.forfeit === myId ? "You" : nameOf(view, view.clock.forfeit)} ran out of time too many times.
+          </p>
+        )}
+
+        {view.clock.deadline !== null && !view.winner && (
+          <TurnClock
+            key={view.clock.deadline}
+            deadline={view.clock.deadline}
+            total={view.clock.limit}
+            offset={offset}
+            urgent={!!myId && view.clock.waitingOn.includes(myId)}
+            label={clockLabel(view, myId)}
+          />
+        )}
+
+        {!linkUp && (
+          <p role="status" className="rounded-2xl bg-x/15 px-4 py-3 text-center text-sm">
+            Connection lost — reconnecting…
+          </p>
+        )}
+        {away.map((p) => (
+          <AwayBanner key={p.id} name={p.name} forfeitAt={forfeitAt(view, p.id)} offset={offset} />
+        ))}
+      </section>
+
+      {/* The game itself */}
+      <section className={`flex min-w-0 flex-col gap-3 lg:col-start-1 lg:row-span-2 lg:row-start-2 ${playing ? fit : ""}`}>
+        {!playing && (
+          <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-line p-6 text-center lg:py-16">
+            <p className="text-muted">On the other phone, open the link or enter this code:</p>
+            <p className="font-display text-5xl font-extrabold tracking-[0.2em]">{code}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button onClick={share} className="h-12 rounded-2xl bg-accent px-5 font-semibold text-accent-ink">Share link</button>
+              <button onClick={() => setSheet("friends")} className="h-12 rounded-2xl border border-ink px-5 font-semibold">
+                Invite a friend
+              </button>
             </div>
-          );
-        })}
-      </div>}
+          </div>
+        )}
 
-      <p aria-live="polite" className="font-display text-3xl font-extrabold text-center">{status}</p>
-      {view.clock.forfeit && (
-        <p className="-mt-4 text-center text-sm text-muted">
-          {view.clock.forfeit === myId ? "You" : nameOf(view, view.clock.forfeit)} ran out of time too many times.
-        </p>
-      )}
+        {playing && view.game === "tictactoe" && (
+          <TicTacToeBoard
+            state={view.state as TicTacToeState}
+            canMove={isPlayer && view.turn === myId}
+            onMove={(cell) => move({ cell })}
+          />
+        )}
+        {playing && view.game === "bidtactoe" && (
+          <BidTacToeBoard
+            state={view.state as BidTacToeView}
+            mySeat={gameSeat}
+            names={gameNames}
+            layout={layout}
+            onBid={(bid, cell) => move({ bid, cell })}
+          />
+        )}
+        {playing && view.game === "duel" && (
+          <DuelBoard
+            state={view.state as DuelView}
+            mySeat={gameSeat}
+            names={gameNames}
+            layout={layout}
+            onAct={(action) => move({ action })}
+          />
+        )}
+        {playing && view.game === "seabattle" && (
+          <SeaBattleBoard
+            state={view.state as SeaBattleView}
+            mySeat={gameSeat}
+            names={gameNames}
+            layout={layout}
+            onMove={move}
+          />
+        )}
+        {playing && view.game === "colorrush" && (
+          <ColorRushBoard
+            state={view.state as ColorRushView}
+            mySeat={gameSeat}
+            names={gameNames}
+            layout={layout}
+            onMove={move}
+          />
+        )}
+        {playing && view.game === "connect4" && (
+          <Connect4Board
+            state={view.state as Connect4State}
+            canMove={isPlayer && view.turn === myId}
+            onMove={(col) => move({ col })}
+          />
+        )}
 
-      {view.clock.deadline !== null && !view.winner && (
-        <TurnClock
-          key={view.clock.deadline}
-          deadline={view.clock.deadline}
-          total={view.clock.limit}
-          offset={offset}
-          urgent={!!myId && view.clock.waitingOn.includes(myId)}
-          label={clockLabel(view, myId)}
-        />
-      )}
+        {view.winner && isPlayer && (
+          <button onClick={rematch} className="h-14 rounded-2xl bg-accent font-semibold text-accent-ink rise">
+            Rematch
+          </button>
+        )}
+      </section>
 
-      {!linkUp && (
-        <p role="status" className="rounded-2xl bg-x/15 px-4 py-3 text-center text-sm">
-          Connection lost — reconnecting…
-        </p>
-      )}
-      {away.map((p) => (
-        <AwayBanner key={p.id} name={p.name} forfeitAt={forfeitAt(view, p.id)} offset={offset} />
-      ))}
+      {/* Chat and reactions: pinned to the bottom of the screen on phones. */}
+      <section className="sticky bottom-0 z-20 -mx-4 flex min-w-0 flex-col gap-1.5 bg-bg/95 px-4 py-2 backdrop-blur lg:static lg:col-start-2 lg:row-start-3 lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        {error && <p role="alert" className="text-center text-sm text-x">{error}</p>}
+        <ChatDock
+          messages={messages}
+          myId={me().id}
+          unread={unread}
+          onOpen={() => {
+            chatOpenRef.current = true;
+            setUnread(0);
+          }}
+          onClose={() => {
+            chatOpenRef.current = false;
+          }}
+          onSend={sendChat}
+          onReact={sendReaction}
+        />
+        {(!isPlayer || view.spectators > 0) && (
+          <p className="text-center text-xs text-muted">
+            {!isPlayer ? "You're spectating." : `${view.spectators} watching`}
+          </p>
+        )}
+      </section>
 
-      {!view.state && (
-        <div className="rounded-2xl border border-dashed border-line p-5 text-center text-muted">
-          On the other phone, open this link or enter code{" "}
-          <span className="font-display font-extrabold tracking-[0.2em] text-ink">{code}</span>.
-        </div>
-      )}
-
-      {view.state != null && view.game === "tictactoe" && (
-        <TicTacToeBoard
-          state={view.state as TicTacToeState}
-          canMove={isPlayer && view.turn === myId}
-          onMove={(cell) => move({ cell })}
-        />
-      )}
-      {view.state != null && view.game === "bidtactoe" && (
-        <BidTacToeBoard
-          state={view.state as BidTacToeView}
-          mySeat={gameSeat}
-          names={gameNames}
-          onBid={(bid, cell) => move({ bid, cell })}
-        />
-      )}
-      {view.state != null && view.game === "duel" && (
-        <DuelBoard
-          state={view.state as DuelView}
-          mySeat={gameSeat}
-          names={gameNames}
-          onAct={(action) => move({ action })}
-        />
-      )}
-      {view.state != null && view.game === "seabattle" && (
-        <SeaBattleBoard
-          state={view.state as SeaBattleView}
-          mySeat={gameSeat}
-          names={gameNames}
-          onMove={move}
-        />
-      )}
-      {view.state != null && view.game === "colorrush" && (
-        <ColorRushBoard
-          state={view.state as ColorRushView}
-          mySeat={gameSeat}
-          names={gameNames}
-          onMove={move}
-        />
-      )}
-      {view.state != null && view.game === "connect4" && (
-        <Connect4Board
-          state={view.state as Connect4State}
-          canMove={isPlayer && view.turn === myId}
-          onMove={(col) => move({ col })}
-        />
-      )}
-
-      {view.winner && isPlayer && (
-        <button onClick={rematch} className="h-14 rounded-2xl bg-accent font-semibold text-accent-ink rise">
-          Rematch
-        </button>
-      )}
-
-      <ChatDock
-        messages={messages}
-        myId={me().id}
-        unread={unread}
-        onOpen={() => {
-          chatOpenRef.current = true;
-          setUnread(0);
-        }}
-        onClose={() => {
-          chatOpenRef.current = false;
-        }}
-        onSend={sendChat}
-        onReact={sendReaction}
-      />
       <ReactionLayer items={floating} />
-
-      <HowToPlayButton game={view.game} className="self-center" />
-
-      {!isPlayer && <p className="text-center text-sm text-muted">You&apos;re spectating.</p>}
-      {view.spectators > 0 && isPlayer && (
-        <p className="text-center text-sm text-muted">{view.spectators} watching</p>
-      )}
-      {error && <p role="alert" className="text-center text-sm text-x">{error}</p>}
+      <FriendsSheet
+        open={sheet === "friends"}
+        onClose={() => setSheet(null)}
+        roomCode={code}
+        onNeedAccount={() => openAccount("account")}
+      />
+      <AccountSheet
+        open={sheet === "account"}
+        onClose={() => setSheet(null)}
+        tab={accountTab}
+        onTab={setAccountTab}
+      />
     </div>
   );
+}
+
+/** Avatar + colour for a player; rooms from before profiles get a stable look from their id. */
+function lookFor(p: { id: string; avatar: string | null; color: string | null }) {
+  let h = 0;
+  for (const ch of p.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return {
+    avatar: p.avatar ?? AVATARS[h % AVATARS.length],
+    color: p.color ?? COLOR_KEYS[(h >>> 8) % COLOR_KEYS.length],
+  };
 }
 
 function nameOf(v: RoomView, id: string | null) {
@@ -599,7 +665,6 @@ function markFor(v: RoomView, id?: string) {
   const i = id ? players?.indexOf(id) : -1;
   if (i !== 0 && i !== 1) return "–";
   if (v.game === "connect4") return "●";
-  if (v.game === "seabattle") return "⚓";
-  if (v.game === "colorrush") return "🂠";
+  if (v.game !== "tictactoe") return ""; // no per-player piece in the other games
   return i === 0 ? "✕" : "◯";
 }

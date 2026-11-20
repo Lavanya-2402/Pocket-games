@@ -16,7 +16,7 @@ export function TicTacToeBoard({
     <div
       role="grid"
       aria-label="Tic tac toe board"
-      className="grid aspect-square w-full grid-cols-3 gap-2 rounded-3xl bg-line p-2"
+      className="@container grid aspect-square w-full grid-cols-3 gap-2 rounded-3xl bg-line p-2"
     >
       {state.board.map((mark, i) => {
         const win = state.line?.includes(i);
@@ -34,7 +34,7 @@ export function TicTacToeBoard({
             {mark && (
               <span
                 key={mark}
-                className={`pop font-display text-[min(22vw,6.5rem)] font-extrabold leading-none
+                className={`pop font-display text-[min(22cqw,6.5rem)] font-extrabold leading-none
                   ${win ? "text-surface" : mark === "X" ? "text-x" : "text-o"}`}
               >
                 {mark === "X" ? "✕" : "◯"}
@@ -43,7 +43,7 @@ export function TicTacToeBoard({
             {open && (
               <span
                 aria-hidden
-                className={`font-display text-[min(22vw,6.5rem)] font-extrabold leading-none opacity-0 group-hover:opacity-20
+                className={`font-display text-[min(22cqw,6.5rem)] font-extrabold leading-none opacity-0 group-hover:opacity-20
                   ${nextMark === "X" ? "text-x" : "text-o"}`}
               >
                 {nextMark === "X" ? "✕" : "◯"}

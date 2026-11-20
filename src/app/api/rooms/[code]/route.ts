@@ -7,7 +7,7 @@ export function GET(req: Request, ctx: RouteContext<"/api/rooms/[code]">) {
     if (!codeSchema.safeParse(code).success) throw new HttpError(404, "Room not found");
     const who = identity(req);
     const { room, players } = await loadRoom(code);
-    const me = authPlayer(players, who);
+    const me = await authPlayer(players, who);
     return Response.json(roomView(room, players, me?.player_id ?? null));
   });
 }

@@ -15,11 +15,14 @@ export function BidTacToeBoard({
   state,
   mySeat,
   names,
+  layout,
   onBid,
 }: {
   state: BidTacToeView;
   mySeat: number | null;
   names: [string, string];
+  /** Game seats in room-seat order, so positions and colours stay put across rematches. */
+  layout: [number, number];
   onBid: (bid: number, cell: number) => void;
 }) {
   const me = mySeat === 0 || mySeat === 1 ? (mySeat as Seat) : null;
@@ -45,7 +48,7 @@ export function BidTacToeBoard({
     <div className="flex flex-col gap-4">
       {/* Coins */}
       <div className="grid grid-cols-2 gap-3">
-        {([0, 1] as Seat[]).map((s) => (
+        {(layout as Seat[]).map((s) => (
           <div key={s} className="rounded-2xl bg-surface px-4 py-3">
             <div className="flex items-center justify-between text-sm text-muted">
               <span className="truncate">{who(s)} <span className={COLOR[s]}>{MARK[s]}</span></span>
@@ -80,7 +83,7 @@ export function BidTacToeBoard({
       )}
 
       {/* Board */}
-      <div role="grid" aria-label="Bid-Tac-Toe board" className="grid aspect-square w-full grid-cols-3 gap-2 rounded-3xl bg-line p-2">
+      <div role="grid" aria-label="Bid-Tac-Toe board" className={`@container grid aspect-square grid-cols-3 gap-2 rounded-3xl bg-line p-2 ${me !== null && !state.winner ? "fit-mini" : "fit-tall"}`}>
         {state.board.map((v, i) => {
           const win = state.line?.includes(i);
           const chosen = target === i && v === null;
@@ -97,12 +100,12 @@ export function BidTacToeBoard({
                 ${canBid && v === null ? "active:scale-95" : ""}`}
             >
               {v !== null && (
-                <span key={`${i}-${v}`} className={`pop font-display text-[min(20vw,6rem)] font-extrabold leading-none ${win ? "text-surface" : COLOR[v]}`}>
+                <span key={`${i}-${v}`} className={`pop font-display text-[min(20cqw,6rem)] font-extrabold leading-none ${win ? "text-surface" : COLOR[v]}`}>
                   {MARK[v]}
                 </span>
               )}
               {chosen && me !== null && (
-                <span aria-hidden className={`font-display text-[min(20vw,6rem)] font-extrabold leading-none opacity-25 ${COLOR[me]}`}>
+                <span aria-hidden className={`font-display text-[min(20cqw,6rem)] font-extrabold leading-none opacity-25 ${COLOR[me]}`}>
                   {MARK[me]}
                 </span>
               )}

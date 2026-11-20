@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getEngine } from "@/games";
@@ -41,7 +42,7 @@ export function identity(req: Request) {
   return parsed.data;
 }
 
-export const nameSchema = z.string().trim().min(1).max(20);
+export const nameSchema = z.string().trim().min(1, "Enter a name").max(20, "Name is too long (20 max)");
 export const codeSchema = z.string().regex(/^[A-Z]{4}$/);
 
 export async function parseBody<T>(req: Request, schema: z.ZodType<T>): Promise<T> {
@@ -51,19 +52,58 @@ export async function parseBody<T>(req: Request, schema: z.ZodType<T>): Promise<
   return parsed.data;
 }
 
+/** Send one realtime message to everyone subscribed to `topic`. */
+export async function notify(topic: string, event: string, payload: object) {
+  const ch = db().channel(topic);
+  const res = await ch.httpSend(event, payload);
+  if (!res.success) console.error("notify failed", topic, res);
+  await db().removeChannel(ch);
+}
+
 /**
  * Ping everyone in the room. For games with no hidden info, the public view rides
  * along so phones can update instantly without a refetch round trip.
  */
-export async function broadcast(room: RoomRow, players: PlayerRow[]) {
+export function broadcast(room: RoomRow, players: PlayerRow[]) {
   const engine = getEngine(room.game)!;
   const payload = engine.hiddenInfo
     ? { version: room.version }
     : { version: room.version, view: roomView(room, players, null) };
-  const ch = db().channel(`room:${room.code}`);
-  const res = await ch.httpSend("update", payload);
-  if (!res.success) console.error("broadcast failed", res);
-  await db().removeChannel(ch);
+  return notify(`room:${room.code}`, "update", payload);
+}
+
+export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
+
+/** PostgREST / Postgres codes for "that table or column doesn't exist (yet)". */
+export function isMissing(error: { code?: string } | null) {
+  return !!error && ["PGRST205", "PGRST204", "42P01", "42703"].includes(error.code ?? "");
+}
+
+export const SETUP_MSG = "Accounts aren't set up yet — run supabase/migrations/002_accounts.sql in Supabase";
+
+// Avatar/colour columns arrive with migration 002. Until it's run, rooms still work
+// without them. A "yes" is remembered; a "no" is re-checked at most every 30 s.
+let profileCols = false;
+let probedAt = 0;
+export async function hasProfileCols() {
+  if (profileCols) return true;
+  if (Date.now() - probedAt < 30_000) return false;
+  probedAt = Date.now();
+  const { error } = await db().from("room_players").select("avatar, color").limit(1);
+  profileCols = !error;
+  return profileCols;
+}
+
+/** True if this id + secret is a logged-in account session. */
+export async function validSession(who: { id: string; secret: string }) {
+  const { data, error } = await db()
+    .from("sessions")
+    .select("account_id")
+    .eq("token_hash", sha256(who.secret))
+    .eq("account_id", who.id)
+    .maybeSingle();
+  if (error && !isMissing(error)) throw error;
+  return !!data;
 }
 
 export interface RoomRow {
@@ -78,13 +118,16 @@ export interface PlayerRow {
   secret: string;
   name: string;
   seat: number | null;
+  avatar?: string | null;
+  color?: string | null;
 }
 
 /** Room + players in a single round trip. */
 export async function loadRoom(code: string) {
+  const extra = (await hasProfileCols()) ? ", avatar, color" : "";
   const { data, error } = await db()
     .from("rooms")
-    .select("code, game, state, version, room_players(player_id, secret, name, seat, joined_at)")
+    .select(`code, game, state, version, room_players(player_id, secret, name, seat, joined_at${extra})`)
     .eq("code", code)
     .maybeSingle<RoomRow & { room_players: (PlayerRow & { joined_at: string })[] }>();
   if (error) throw error;
@@ -92,15 +135,35 @@ export async function loadRoom(code: string) {
   const { room_players, ...room } = data;
   const players = room_players
     .sort((a, b) => a.joined_at.localeCompare(b.joined_at))
-    .map((p) => ({ player_id: p.player_id, secret: p.secret, name: p.name, seat: p.seat }));
+    .map((p): PlayerRow => ({
+      player_id: p.player_id, secret: p.secret, name: p.name, seat: p.seat,
+      avatar: p.avatar ?? null, color: p.color ?? null,
+    }));
   return { room: room as RoomRow, players };
 }
 
-/** Throws unless the caller's secret matches. Returns their row, or null if they never joined. */
-export function authPlayer(players: PlayerRow[], who: { id: string; secret: string }) {
+/**
+ * Throws unless the caller owns this seat. Returns their row, or null if they never joined.
+ * Room secrets are stored hashed. A logged-in account may also come back from another
+ * phone (different session token), so a valid session for the same account id is accepted.
+ */
+export async function authPlayer(players: PlayerRow[], who: { id: string; secret: string }) {
   const me = players.find((p) => p.player_id === who.id);
-  if (me && me.secret !== who.secret) throw new HttpError(403, "Identity mismatch");
-  return me ?? null;
+  if (!me) return null;
+  if (me.secret === sha256(who.secret) || me.secret === who.secret) return me; // 2nd form: rooms from before hashing
+  if (await validSession(who)) return me;
+  throw new HttpError(403, "Identity mismatch");
+}
+
+/** The row to insert for a player taking part in a room. */
+export async function playerRow(
+  code: string,
+  who: { id: string; secret: string },
+  profile: { name: string; avatar: string; color: string },
+  seat: number | null,
+) {
+  const base = { room_code: code, player_id: who.id, secret: sha256(who.secret), name: profile.name, seat };
+  return (await hasProfileCols()) ? { ...base, avatar: profile.avatar, color: profile.color } : base;
 }
 
 /** Atomically replace state if nobody else changed it since we read it. */
@@ -135,7 +198,10 @@ export function roomView(room: RoomRow, players: PlayerRow[], viewerId: string |
     version: room.version,
     players: players
       .filter((p) => p.seat !== null)
-      .map((p) => ({ id: p.player_id, name: p.name, seat: p.seat })),
+      .map((p) => ({
+        id: p.player_id, name: p.name, seat: p.seat,
+        avatar: p.avatar ?? null, color: p.color ?? null,
+      })),
     spectators: players.filter((p) => p.seat === null).length,
     you: me ? { id: me.player_id, seat: me.seat } : null,
     state: live ? engine.viewFor(state, viewerId) : null,

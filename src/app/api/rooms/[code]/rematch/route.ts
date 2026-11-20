@@ -12,7 +12,7 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/rematch"
     const who = identity(req);
 
     const { room, players } = await loadRoom(code);
-    const me = authPlayer(players, who);
+    const me = await authPlayer(players, who);
     if (!me || me.seat === null) throw new HttpError(403, "Only players can start a rematch");
     const engine = getEngine(room.game)!;
     const { state: prev, meta } = unwrap(room.state);

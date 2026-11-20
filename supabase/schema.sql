@@ -36,3 +36,5 @@ create index if not exists moves_room_idx on moves(room_code, id);
 alter table rooms        enable row level security;
 alter table room_players enable row level security;
 alter table moves        enable row level security;
+
+-- Then run supabase/migrations/002_accounts.sql (accounts, friends, avatars).

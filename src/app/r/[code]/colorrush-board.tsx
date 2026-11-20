@@ -61,16 +61,18 @@ function CardBack({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 }
 
 export function ColorRushBoard({
-  state, mySeat, names, onMove,
+  state, mySeat, names, layout, onMove,
 }: {
   state: ColorRushView;
   mySeat: number | null;
   names: [string, string];
+  /** Game seats in room-seat order, so positions and colours stay put across rematches. */
+  layout: [number, number];
   onMove: (m: ColorRushMove) => void;
 }) {
   const me = mySeat === 0 || mySeat === 1 ? (mySeat as Seat) : null;
-  const opp: Seat = me === null ? 1 : ((1 - me) as Seat);
-  const bottom: Seat = me ?? 0;
+  const opp = (me === null ? layout[1] : 1 - me) as Seat;
+  const bottom = (me ?? layout[0]) as Seat;
   const myTurn = me !== null && state.turn === me && !state.winner;
   const [picking, setPicking] = useState<Card | null>(null); // Rainbow waiting for a color
 

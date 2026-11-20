@@ -1,12 +1,10 @@
-import { z } from "zod";
 import { getEngine } from "@/games";
 import { start, wrap } from "@/games/runner";
+import { profileSchema, resolvePlayer } from "@/lib/accounts";
 import {
   authPlayer, broadcast, codeSchema, db, handle, HttpError, identity, loadRoom,
-  nameSchema, parseBody, roomView, saveState, seatedIds,
+  parseBody, playerRow, roomView, saveState, seatedIds,
 } from "@/lib/server";
-
-const bodySchema = z.object({ name: nameSchema });
 
 /** Take a free seat (or spectate if full). Starts the game once both seats are filled. */
 export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/join">) {
@@ -14,21 +12,18 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/join">) 
     const code = (await ctx.params).code.toUpperCase();
     if (!codeSchema.safeParse(code).success) throw new HttpError(404, "Room not found");
     const who = identity(req);
-    const { name } = await parseBody(req, bodySchema);
+    const body = await parseBody(req, profileSchema);
 
     let { room, players } = await loadRoom(code);
-    if (!authPlayer(players, who)) {
+    if (!(await authPlayer(players, who))) {
+      const profile = await resolvePlayer(who, body);
       const taken = new Set(players.map((p) => p.seat));
       let seat: number | null = !taken.has(0) ? 0 : !taken.has(1) ? 1 : null;
-      let { error } = await db()
-        .from("room_players")
-        .insert({ room_code: code, player_id: who.id, secret: who.secret, name, seat });
+      let { error } = await db().from("room_players").insert(await playerRow(code, who, profile, seat));
       if (error?.code === "23505" && seat !== null) {
         // Someone grabbed the seat at the same instant — spectate instead.
         seat = null;
-        ({ error } = await db()
-          .from("room_players")
-          .insert({ room_code: code, player_id: who.id, secret: who.secret, name, seat }));
+        ({ error } = await db().from("room_players").insert(await playerRow(code, who, profile, seat)));
       }
       if (error) throw error;
       ({ room, players } = await loadRoom(code));

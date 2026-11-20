@@ -19,7 +19,7 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/move">) 
     // Simultaneous games (both players act in the same round) may race; retry a few times.
     for (let attempt = 0; ; attempt++) {
       const { room, players } = await loadRoom(code);
-      const me = authPlayer(players, who);
+      const me = await authPlayer(players, who);
       if (!me || me.seat === null) throw new HttpError(403, "Spectators can't move");
       const { state, meta } = unwrap(room.state);
       if (!state) throw new HttpError(409, "Waiting for an opponent");

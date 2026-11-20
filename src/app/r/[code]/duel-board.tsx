@@ -21,11 +21,14 @@ export function DuelBoard({
   state,
   mySeat,
   names,
+  layout,
   onAct,
 }: {
   state: DuelView;
   mySeat: number | null;
   names: [string, string];
+  /** Game seats in room-seat order, so positions and colours stay put across rematches. */
+  layout: [number, number];
   onAct: (action: Action) => void;
 }) {
   const me = mySeat === 0 || mySeat === 1 ? (mySeat as Seat) : null;
@@ -34,8 +37,10 @@ export function DuelBoard({
   const locked = mine && mine !== "hidden" ? mine : null;
   const canAct = me !== null && !state.winner && !locked;
   const who = (s: Seat) => (s === me ? "You" : names[s]);
-  // Show "you" on the bottom, like a fighting game.
-  const order: Seat[] = me === 1 ? [0, 1] : [1, 0];
+  // Players always see themselves at the bottom; spectators see room-seat order.
+  // Colours follow the room seat too, so nobody changes colour after a rematch.
+  const order = (me === null ? layout : [opp, me]) as [Seat, Seat];
+  const tint = (s: Seat) => (layout.indexOf(s) === 1 ? 1 : 0) as Seat;
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,7 +52,7 @@ export function DuelBoard({
         <div key={s} className="flex flex-col gap-3">
           <Fighter
             name={who(s)}
-            seat={s}
+            seat={tint(s)}
             hp={state.hp[s]}
             energy={state.energy[s]}
             status={state.winner ? null : state.pending[s] ? "Ready ✓" : "Choosing…"}
@@ -55,7 +60,7 @@ export function DuelBoard({
             round={state.round}
           />
           {idx === 0 && state.last && (
-            <Reveal last={state.last} who={who} round={state.round} />
+            <Reveal last={state.last} who={who} round={state.round} pair={order} />
           )}
         </div>
       ))}
@@ -130,9 +135,9 @@ function Fighter({
 }
 
 function Reveal({
-  last, who, round,
+  last, who, round, pair,
 }: {
-  last: NonNullable<DuelView["last"]>; who: (s: Seat) => string; round: number;
+  last: NonNullable<DuelView["last"]>; who: (s: Seat) => string; round: number; pair: [Seat, Seat];
 }) {
   const line = (s: Seat) => {
     const dealt = last.damage[s === 0 ? 1 : 0];
@@ -140,13 +145,13 @@ function Reveal({
   };
   return (
     <div key={round} className="rise flex items-center justify-center gap-4 py-1">
-      <span className="text-4xl pop" aria-hidden>{INFO[last.actions[0]].icon}</span>
+      <span className="text-4xl pop" aria-hidden>{INFO[last.actions[pair[0]]].icon}</span>
       <span className="text-center text-sm">
-        <span className="block">{line(0)}</span>
+        <span className="block">{line(pair[0])}</span>
         <span className="block text-muted">vs</span>
-        <span className="block">{line(1)}</span>
+        <span className="block">{line(pair[1])}</span>
       </span>
-      <span className="text-4xl pop" aria-hidden>{INFO[last.actions[1]].icon}</span>
+      <span className="text-4xl pop" aria-hidden>{INFO[last.actions[pair[1]]].icon}</span>
     </div>
   );
 }

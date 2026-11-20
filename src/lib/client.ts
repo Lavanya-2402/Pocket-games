@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cleanAvatar, cleanColor, randomAvatar, randomColor, type Profile } from "./profile";
 import type { RoomView } from "./server";
 
 export type { RoomView };
@@ -54,4 +55,32 @@ export function realtime() {
     );
   }
   return sb;
+}
+
+// ---- Profile kept on this phone (guests and logged-in players alike) ----
+
+export function localProfile(): Profile {
+  return {
+    name: getName(),
+    avatar: cleanAvatar(store("pg.avatar", randomAvatar)),
+    color: cleanColor(store("pg.color", randomColor)),
+  };
+}
+
+export function setLocalProfile(p: Profile) {
+  setName(p.name);
+  localStorage.setItem("pg.avatar", cleanAvatar(p.avatar));
+  localStorage.setItem("pg.color", cleanColor(p.color));
+}
+
+/** Become a specific account on this phone (after sign-up / login). */
+export function setIdentity(id: string, secret: string) {
+  localStorage.setItem("pg.id", id);
+  localStorage.setItem("pg.secret", secret);
+}
+
+/** Forget the account; the next `me()` call makes a fresh guest identity. */
+export function clearIdentity() {
+  localStorage.removeItem("pg.id");
+  localStorage.removeItem("pg.secret");
 }

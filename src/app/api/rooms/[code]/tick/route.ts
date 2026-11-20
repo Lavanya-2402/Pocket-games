@@ -16,7 +16,7 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/tick">) 
     const who = identity(req);
 
     const { room, players } = await loadRoom(code);
-    const me = authPlayer(players, who);
+    const me = await authPlayer(players, who);
     const { state, meta } = unwrap(room.state);
     if (!state) return Response.json(roomView(room, players, me?.player_id ?? null));
 

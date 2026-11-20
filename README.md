@@ -41,6 +41,17 @@ Phone A: enter name → pick a game → **Share** (or read out the code).
 Phone B: open the link, or enter the code → **Join**.
 Third+ people who join just spectate. **Rematch** swaps who goes first.
 
+## Accounts, friends and profiles
+Playing as a guest still works with no sign-up. Accounts are optional and add friends, invites and a profile that follows you between phones.
+
+**One-time setup:** run [`supabase/migrations/002_accounts.sql`](supabase/migrations/002_accounts.sql) in the Supabase SQL Editor. Until then the app runs in guest-only mode.
+
+- **Profile:** name, avatar and colour (guests too).
+- **Account:** username + password. Passwords are stored as one-way scrypt hashes, so nobody can read them, including the owner.
+- **Friends:** add by username, accept requests, see who is online, invite a friend into your room.
+
+**Helping someone who forgot their password:** in Supabase → Table Editor → `accounts`, type a short code into their `reset_code` cell and tell them the code. In the app they open Profile → Account → Forgot password and enter username + code + a new password. The code works once.
+
 ## How it works
 - **Server is the authority.** Phones `POST /api/rooms/:code/move`; the server validates with the game engine, saves with an optimistic lock on `version`, logs to `moves`, then pings the room over Supabase Realtime. Each phone refetches *its own* view (so hidden-info games can hide cards later).
 - **Hidden info** (Bid-Tac-Toe, Duel, Sea Battle, Color Rush): `viewFor` filters each player's view on the server, so secret bids, ships and hands never reach the other phone.

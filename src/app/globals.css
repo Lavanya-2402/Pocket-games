@@ -85,3 +85,14 @@ body {
   .pop, .rise, .drop { animation: none; }
   .float-up { animation: float-up 2200ms steps(1) forwards; }
 }
+
+/* Boards shrink to fit the screen height, so a whole room is visible without scrolling.
+   The subtracted amount is the space the rest of the room needs (header, players, clock, chat). */
+.fit-square, .fit-tall, .fit-mini { width: 100%; margin-inline: auto; }
+.fit-square { max-width: max(15rem, min(100%, calc(100dvh - 21rem))); }
+.fit-tall { max-width: max(15rem, min(100%, calc(100dvh - 26rem))); }
+.fit-mini { max-width: max(12rem, min(100%, calc(100dvh - 39rem))); }
+@media (min-width: 1024px) {
+  .fit-square, .fit-tall { max-width: max(15rem, min(100%, calc(100dvh - 9rem))); }
+  .fit-mini { max-width: max(14rem, min(100%, calc(100dvh - 30rem))); }
+}
