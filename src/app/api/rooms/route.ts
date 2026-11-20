@@ -9,6 +9,7 @@ const optionsSchema = z.object({
   private: z.boolean().default(false),
   bot: z.enum(["easy", "hard"]).nullable().default(null),
   rules: z.record(z.string(), z.boolean()).default({}),
+  seats: z.number().int().min(2).max(8).default(2),
 });
 const bodySchema = profileSchema.extend({ game: z.string(), options: optionsSchema.optional() });
 
@@ -26,6 +27,8 @@ export function POST(req: Request) {
     const options: RoomOptions = {
       ...asked,
       private: asked.private && !asked.bot,
+      // As many seats as asked for, within what the game allows; the computer only plays one-on-one.
+      seats: asked.bot ? 2 : Math.min(engine.maxPlayers ?? 2, Math.max(engine.minPlayers ?? 2, asked.seats)),
       rules: Object.fromEntries(Object.entries(asked.rules).filter(([k, on]) => known.has(k) && on)),
     };
     if (options.bot && !engine.botMove) throw new HttpError(400, "The computer can't play this game yet");

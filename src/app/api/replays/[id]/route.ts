@@ -5,7 +5,7 @@ import { authPlayer, db, handle, HttpError, identity, isMissing, loadRoom, valid
 interface Row {
   id: string; room_code: string; game: string; p0: string; p1: string; names: string[];
   winner: string | null; forfeit: boolean; finished_at: string;
-  replay: { seed: number; order: [string, string]; rules: Record<string, boolean>; log: [number, unknown][] } | null;
+  replay: { seed: number; order: string[]; rules: Record<string, boolean>; log: [number, unknown][] } | null;
 }
 
 /**

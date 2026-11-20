@@ -1,6 +1,7 @@
 import type { ZodType } from "zod";
 
-export type Players = [string, string];
+/** Player ids in game order: players[0] acts first. Most games take exactly two. */
+export type Players = string[];
 export type Outcome = string | "draw" | null;
 
 /**
@@ -13,6 +14,9 @@ export interface GameEngine<S, M> {
   /** True if viewFor hides anything (cards, ships, bids). Disables state-in-broadcast. */
   hiddenInfo?: boolean;
   moveSchema: ZodType<M>;
+  /** How many can play. Both default to 2. */
+  minPlayers?: number;
+  maxPlayers?: number;
   /** Optional house rules this game understands, offered as toggles when creating a room. */
   rules?: { id: string; label: string; hint: string }[];
   init(players: Players, seed: number, rules?: Record<string, boolean>): S;

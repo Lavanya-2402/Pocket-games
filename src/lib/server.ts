@@ -227,7 +227,7 @@ export function tidyLater() {
 /** File a finished game in the results table (win/loss records, leaderboards, replays). */
 async function recordResult(room: RoomRow, players: PlayerRow[], state: unknown, meta: Meta) {
   const engine = getEngine(room.game)!;
-  const order = meta.order ?? (state as { players: [string, string] }).players;
+  const order = meta.order ?? (state as { players: string[] }).players;
   const w = outcome(engine, state, meta);
   const { error } = await db().from("results").insert({
     id: meta.resultId,
@@ -235,6 +235,7 @@ async function recordResult(room: RoomRow, players: PlayerRow[], state: unknown,
     game: room.game,
     p0: order[0],
     p1: order[1],
+    players: order,
     names: order.map((id) => players.find((p) => p.player_id === id)?.name ?? "Player"),
     winner: w === "draw" ? null : w,
     forfeit: meta.forfeit !== null,
@@ -246,10 +247,9 @@ async function recordResult(room: RoomRow, players: PlayerRow[], state: unknown,
   if (error && !isMissing(error) && error.code !== "23505") console.error("result not saved", error);
 }
 
-export function seatedIds(players: PlayerRow[]): [string, string] | null {
-  const a = players.find((p) => p.seat === 0);
-  const b = players.find((p) => p.seat === 1);
-  return a && b ? [a.player_id, b.player_id] : null;
+/** Ids of the seated players, in seat order. */
+export function seatedIds(players: PlayerRow[]): string[] {
+  return players.filter((p) => p.seat !== null).sort((a, b) => a.seat! - b.seat!).map((p) => p.player_id);
 }
 
 /** What one viewer receives. Secrets never leave the server. */
@@ -275,6 +275,8 @@ export function roomView(room: RoomRow, players: PlayerRow[], viewerId: string |
     turn: live && !meta.forfeit ? engine.turn(state) : null,
     winner: live ? outcome(engine, state, meta) : null,
     options: meta.options,
+    /** Fewest players the game can start with (the host may start early once this many have joined). */
+    minPlayers: engine.minPlayers ?? 2,
     series: meta.series,
     /** Id of the finished game's replay, once it has ended (and replays are being kept). */
     replayId: live && resultsTable ? meta.resultId : null,

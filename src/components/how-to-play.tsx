@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { getEngine } from "@/games";
 import { RULES } from "@/games/rules";
 
 /** The rules for one game, as a card. */
@@ -11,7 +12,10 @@ export function RulesCard({ game, hideTitle = false }: { game: string; hideTitle
     <div className="flex flex-col gap-4">
       <div>
         {!hideTitle && <h3 className="font-display text-2xl font-extrabold">{r.title}</h3>}
-        <p className="text-sm text-muted">{r.tagline}</p>
+        <p className="text-sm text-muted">
+          {r.tagline}
+          {(getEngine(game)?.maxPlayers ?? 2) > 2 && <> For 2 to {getEngine(game)!.maxPlayers} players.</>}
+        </p>
       </div>
       <p className="rounded-2xl bg-bg px-4 py-3 text-sm">
         <span className="font-semibold">Goal: </span>{r.goal}

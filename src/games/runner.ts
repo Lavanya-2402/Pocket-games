@@ -25,8 +25,10 @@ export interface RoomOptions {
   bot: BotLevel | null;
   /** Game-specific house rules, e.g. Color Rush "stacking". */
   rules: Record<string, boolean>;
+  /** How many players the room is for (2 unless the game allows more). */
+  seats: number;
 }
-export const DEFAULT_OPTIONS: RoomOptions = { bestOf: 1, private: false, bot: null, rules: {} };
+export const DEFAULT_OPTIONS: RoomOptions = { bestOf: 1, private: false, bot: null, rules: {}, seats: 2 };
 
 export interface Series {
   wins: Record<string, number>;
@@ -50,7 +52,7 @@ export interface Meta {
   series: Series;
   /** Replay of the current game: init(order, seed, rules), then each [seat, move]. */
   seed: number;
-  order: [string, string] | null;
+  order: string[] | null;
   log: [number, unknown][];
   /** Set once this game's result has been counted; also its id in the results table. */
   resultId: string | null;
@@ -73,7 +75,9 @@ export const newRoomMeta = (options: RoomOptions): Meta => ({ ...freshMeta(), op
 export function unwrap(raw: unknown): { state: unknown; meta: Meta } {
   if (raw && typeof raw === "object" && "$meta" in raw) {
     const s = raw as Stored;
-    return { state: s.$engine ?? null, meta: { ...freshMeta(), ...s.$meta } };
+    const meta = { ...freshMeta(), ...s.$meta };
+    // Rooms saved before an option existed get its default.
+    return { state: s.$engine ?? null, meta: { ...meta, options: { ...DEFAULT_OPTIONS, ...meta.options } } };
   }
   return { state: raw ?? null, meta: freshMeta() };
 }
@@ -82,8 +86,8 @@ export const wrap = (state: unknown, meta: Meta): Stored => ({ $engine: state, $
 
 export function outcome(engine: AnyEngine, state: unknown, meta: Meta): Outcome {
   if (meta.forfeit) {
-    const players = (state as { players: [string, string] }).players;
-    return players[0] === meta.forfeit ? players[1] : players[0];
+    const players = (state as { players: string[] }).players;
+    return players[0] === meta.forfeit ? players[1] : players[0]; // forfeits only happen in two-player games
   }
   return engine.winner(state);
 }
@@ -154,7 +158,7 @@ export function start(engine: AnyEngine, state: unknown, now: number, prev?: Met
 }
 
 /** Start a new game for `players` (game order: players[0] acts first). */
-export function begin(engine: AnyEngine, players: [string, string], seed: number, prev: Meta | null, now: number) {
+export function begin(engine: AnyEngine, players: string[], seed: number, prev: Meta | null, now: number) {
   const options = prev?.options ?? DEFAULT_OPTIONS;
   const state = engine.init(players, seed, options.rules);
   const meta: Meta = { ...start(engine, state, now, prev ?? undefined), seed, order: players };
@@ -201,7 +205,9 @@ export function botTurns(
  */
 export function timeout(engine: AnyEngine, state: unknown, meta: Meta, now: number, rng: () => number) {
   if (meta.deadline === null || now < meta.deadline || outcome(engine, state, meta) !== null) return null;
-  const limit = missLimit(engine.timeLimit(state));
+  // With three or more players nobody forfeits: an absent player's turns are simply played for them.
+  const twoPlayer = (state as { players: string[] }).players.length === 2;
+  const limit = twoPlayer ? missLimit(engine.timeLimit(state)) : Infinity;
   let s = state;
   let m: Meta = { ...meta, misses: { ...meta.misses } };
   for (const p of waitingOn(engine, state)) {

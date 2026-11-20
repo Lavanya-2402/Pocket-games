@@ -18,11 +18,13 @@ export function useNow(ms: number) {
  * down to the forfeit (their remaining missed turns × turn length).
  */
 export function AwayBanner({
-  name, forfeitAt, offset,
+  name, forfeitAt, offset, auto = false,
 }: {
   name: string;
   forfeitAt: number | null;
   offset: number;
+  /** Three or more players: nobody forfeits, their turns are just played for them. */
+  auto?: boolean;
 }) {
   const now = useNow(500) + offset;
   const secs = forfeitAt === null ? null : Math.max(0, Math.ceil((forfeitAt - now) / 1000));
@@ -31,7 +33,9 @@ export function AwayBanner({
       <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-muted" />
       <span>
         <b>{name} left the room.</b>{" "}
-        {secs === null
+        {auto
+          ? "Their turns will be played automatically until they come back."
+          : secs === null
           ? "If they don't come back, their clock will run out on their next turn."
           : secs > 0
             ? <>They forfeit in <b className="tabular-nums">{secs}s</b> unless they come back.</>

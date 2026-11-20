@@ -2,21 +2,22 @@
 
 import { COLS, FACES, pairsWon, PAIRS, type MemoryView } from "@/games/memory";
 import type { BoardProps } from "./boards";
+import { scoreCols, seatColor } from "./seat";
 
 /** Memory Match: a grid of face-down cards; flip two to find a pair. */
 export function MemoryBoard({ state, mySeat, names, layout, myTurn, onMove }: BoardProps) {
   const s = state as MemoryView;
   const pts = pairsWon(s);
   const who = (seat: number) => (seat === mySeat ? "You" : names[seat]);
-  const tint = (seat: number) => (seat === 0 ? "var(--x)" : "var(--o)");
+  const tint = seatColor;
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2 text-center">
+      <div className="grid gap-2 text-center" style={scoreCols(layout.length)}>
         {layout.map((seat) => (
           <div key={seat} className="rounded-2xl bg-surface py-1.5">
             <span className="font-display text-2xl font-extrabold tabular-nums" style={{ color: tint(seat) }}>{pts[seat]}</span>
-            <span className="ml-1.5 text-xs text-muted">{who(seat)} · pairs</span>
+            <span className="ml-1.5 text-xs text-muted">{who(seat)}{layout.length === 2 ? " · pairs" : ""}</span>
           </div>
         ))}
       </div>

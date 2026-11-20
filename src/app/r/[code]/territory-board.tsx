@@ -36,7 +36,7 @@ export function TerritoryBoard({ state, mySeat, names, layout, myTurn, onMove }:
       >
         {s.board.map((v, i) => {
           const open = myTurn && v === null;
-          const gain = open && mySeat !== null ? flips(s.board, i, mySeat).length : 0;
+          const gain = open && mySeat !== null ? flips(s.board, i, mySeat as 0 | 1).length : 0;
           const justFlipped = s.last?.flipped.includes(i);
           const justPlaced = s.last?.cell === i;
           return (

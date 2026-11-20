@@ -9,6 +9,7 @@ import { NewGameSheet } from "@/components/new-game-sheet";
 import { StatsSheet } from "@/components/stats-sheet";
 import { RulesCard } from "@/components/how-to-play";
 import { Avatar, Sheet } from "@/components/ui";
+import { getEngine } from "@/games";
 import { CATALOG, GROUPS, type GameEntry } from "@/games/catalog";
 import type { RoomOptions } from "@/games/runner";
 import { api, localProfile, type RecentPlayer } from "@/lib/client";
@@ -272,6 +273,7 @@ function GameTile({
   onPlay: () => void;
   onRules: () => void;
 }) {
+  const maxPlayers = getEngine(game.id)?.maxPlayers ?? 2;
   return (
     <div className="relative h-full">
       <button
@@ -291,7 +293,12 @@ function GameTile({
             ) : game.icon}
           </span>
         </span>
-        <span className="line-clamp-2 pr-8 text-xs leading-snug opacity-70">{busy ? "Opening room…" : game.tagline}</span>
+        <span className="line-clamp-2 pr-8 text-xs leading-snug opacity-70">
+          {maxPlayers > 2 && !busy && (
+            <span className="mr-1 rounded-md border border-accent-ink/30 px-1 text-[10px] font-bold whitespace-nowrap">2–{maxPlayers} players</span>
+          )}
+          {busy ? "Opening room…" : game.tagline}
+        </span>
       </button>
       <button
         onClick={onRules}

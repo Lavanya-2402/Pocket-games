@@ -9,7 +9,7 @@ import { api, me } from "@/lib/client";
 interface ReplayData {
   id: string; game: string; gameName: string; names: string[];
   winner: string | null; forfeit: boolean; at: number;
-  seed: number; order: [string, string]; rules: Record<string, boolean>; log: [number, unknown][];
+  seed: number; order: string[]; rules: Record<string, boolean>; log: [number, unknown][];
 }
 
 /** Step through a finished game, rebuilt on this phone from its seed and move list. */
@@ -64,8 +64,8 @@ export function Replay() {
   const ui = GAME_UI[data.game];
   const myId = me().id;
   const seat = data.order.indexOf(myId);
-  const mySeat = seat === 0 || seat === 1 ? seat : null;
-  const names: [string, string] = [data.names[0] ?? "Player 1", data.names[1] ?? "Player 2"];
+  const mySeat = seat >= 0 ? seat : null;
+  const names = data.order.map((_, i) => data.names[i] ?? `Player ${i + 1}`);
   const who = (s: number) => (s === mySeat ? "You" : names[s]);
   // You see what you saw: your own hidden things, not the other player's — until the end.
   const base = engine.viewFor(states[step], mySeat === null ? null : myId) as object;
@@ -81,7 +81,7 @@ export function Replay() {
         <div className="min-w-0">
           <h1 className="truncate font-display text-lg font-extrabold">Replay · {data.gameName}</h1>
           <p className="truncate text-xs text-muted">
-            {who(0)} vs {who(1)} · {new Date(data.at).toLocaleDateString()}
+            {names.map((_, i) => who(i)).join(" vs ")} · {new Date(data.at).toLocaleDateString()}
           </p>
         </div>
       </header>
@@ -96,7 +96,7 @@ export function Replay() {
       {/* The real board, switched off: you're watching, not playing. */}
       <div inert className={`pointer-events-none ${ui?.fit ?? ""}`}>
         {ui && (
-          <ui.Board state={view} mySeat={mySeat as 0 | 1 | null} names={names} layout={[0, 1]} myTurn={false} onMove={() => {}} />
+          <ui.Board state={view} mySeat={mySeat} names={names} layout={names.map((_, i) => i)} myTurn={false} onMove={() => {}} />
         )}
       </div>
 

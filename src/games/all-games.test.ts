@@ -70,6 +70,40 @@ describe.each(Object.values(GAMES).map((g) => [g.name, g] as const))("%s", (_nam
     }
   });
 
+  if ((engine.maxPlayers ?? 2) > 2) {
+    const C = "33333333-3333-4333-8333-333333333333";
+    const D = "44444444-4444-4444-8444-444444444444";
+    const tables = [[A, B, C], [A, B, C, D]].filter((t) => t.length <= engine.maxPlayers!);
+
+    it.each(tables.map((t) => [t.length, t] as const))("plays to a finish with %i players, and replays exactly", (_n, table) => {
+      for (let game = 0; game < 8; game++) {
+        const rng = rngFrom(7000 + game).next;
+        let { state, meta } = begin(engine, table, 900 + game, null, 0);
+        const acted = new Set<string>();
+        let steps = 0;
+        while (outcome(engine, state, meta) === null) {
+          const waiting = waitingOn(engine, state);
+          expect(waiting.length, "someone must be able to act").toBeGreaterThan(0);
+          const p = waiting[Math.floor(rng() * waiting.length)];
+          acted.add(p);
+          const move = engine.autoMove(state, p, rng);
+          expect(engine.validate(state, move, p), `auto move ${JSON.stringify(move)}`).toBeNull();
+          ({ state, meta } = playerMove(engine, state, meta, move, p, 0));
+          expect(++steps).toBeLessThan(MAX_STEPS);
+        }
+        const result = outcome(engine, state, meta);
+        expect(result === "draw" || table.includes(result as string)).toBe(true);
+        expect(acted.size).toBeGreaterThan(1);
+        // Every seat gets its own view without crashing.
+        for (const id of table) expect(engine.viewFor(state, id)).toBeTruthy();
+        // And the saved seed + moves rebuild the same game.
+        let replayed = engine.init(meta.order!, meta.seed, meta.options.rules);
+        for (const [seat, move] of meta.log) replayed = engine.apply(replayed, move, meta.order![seat]);
+        expect(replayed).toEqual(state);
+      }
+    });
+  }
+
   it("keeps its state as plain JSON (it is stored in the database)", () => {
     const { state } = begin(engine, [A, B], 5, null, 0);
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);

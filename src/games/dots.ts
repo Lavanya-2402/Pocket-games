@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { GameEngine, Outcome, Players } from "./types";
-import { pick } from "./util";
+import { leader, pick } from "./util";
 
 /**
  * Dots and Boxes: take turns drawing a line between two neighbouring dots.
@@ -8,7 +8,7 @@ import { pick } from "./util";
  */
 
 export const N = 5; // boxes per side (so N+1 dots per side); 25 boxes means no ties
-type Seat = 0 | 1;
+type Seat = number;
 
 export interface DotsState {
   players: Players;
@@ -46,12 +46,13 @@ export function openLines(s: Pick<DotsState, "h" | "v">): DotsMove[] {
   return out;
 }
 
-export const score = (s: Pick<DotsState, "boxes">) =>
-  [0, 1].map((seat) => s.boxes.flat().filter((b) => b === seat).length) as [number, number];
+export const score = (s: Pick<DotsState, "boxes" | "players">) =>
+  s.players.map((_, seat) => s.boxes.flat().filter((b) => b === seat).length);
 
 export const dots: GameEngine<DotsState, DotsMove> = {
   id: "dots",
   name: "Dots and Boxes",
+  maxPlayers: 4,
   moveSchema: z.object({ o: z.enum(["h", "v"]), r: z.number().int(), c: z.number().int() }),
 
   init(players) {
@@ -88,11 +89,11 @@ export const dots: GameEngine<DotsState, DotsMove> = {
         closed++;
       }
     }
-    const [a, b] = score({ boxes });
-    const winner: Outcome = a + b === N * N ? (a === b ? "draw" : s.players[a > b ? 0 : 1]) : null;
+    const top = boxes.flat().every((b) => b !== null) ? leader(score({ boxes, players: s.players }), 0) : null;
+    const winner: Outcome = top === null ? null : top === "draw" ? "draw" : s.players[top];
     return {
       ...s, h, v, boxes, winner,
-      turn: closed > 0 ? s.turn : ((1 - s.turn) as Seat), // closing a box earns another go
+      turn: closed > 0 ? s.turn : (s.turn + 1) % s.players.length, // closing a box earns another go
       last: { ...m, by: s.turn, closed },
     };
   },

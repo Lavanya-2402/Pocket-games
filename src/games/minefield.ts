@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { GameEngine, Outcome, Players } from "./types";
-import { pick, rngFrom, shuffle } from "./util";
+import { leader, pick, rngFrom, shuffle } from "./util";
 
 /**
  * Minefield Duel: one shared minefield. Take turns opening a square.
@@ -11,15 +11,15 @@ import { pick, rngFrom, shuffle } from "./util";
 export const SIZE = 8;
 export const MINES = 13; // odd, so somebody always wins
 export const TARGET = Math.ceil(MINES / 2);
-type Seat = 0 | 1;
-/** null = unopened, 0-8 = safe with that many neighbouring mines, 10/11 = mine found by seat 0/1. */
+type Seat = number;
+/** null = unopened, 0-8 = safe with that many neighbouring mines, 10+seat = mine found by that seat. */
 export type Cell = number | null;
 
 export interface MinefieldState {
   players: Players;
   mines: boolean[]; // secret
   cells: Cell[];
-  found: [number, number];
+  found: number[];
   turn: Seat;
   last: { by: Seat; cell: number; mine: boolean } | null;
   winner: Outcome;
@@ -50,13 +50,14 @@ export const minefield: GameEngine<MinefieldState, MinefieldMove> = {
   id: "minefield",
   name: "Minefield Duel",
   hiddenInfo: true,
+  maxPlayers: 4,
   moveSchema: z.object({ cell: z.number().int().min(0).max(SIZE * SIZE - 1) }),
 
   init(players, seed) {
     const spots = shuffle(Array.from({ length: SIZE * SIZE }, (_, i) => i), rngFrom(seed).next).slice(0, MINES);
     const mines = Array(SIZE * SIZE).fill(false);
     for (const i of spots) mines[i] = true;
-    return { players, mines, cells: Array(SIZE * SIZE).fill(null), found: [0, 0], turn: 0, last: null, winner: null };
+    return { players, mines, cells: Array(SIZE * SIZE).fill(null), found: players.map(() => 0), turn: 0, last: null, winner: null };
   },
 
   validate(s, m, playerId) {
@@ -73,9 +74,11 @@ export const minefield: GameEngine<MinefieldState, MinefieldMove> = {
     const me = s.turn;
     if (s.mines[m.cell]) {
       cells[m.cell] = 10 + me;
-      const found: [number, number] = [...s.found];
+      const found = [...s.found];
       found[me]++;
-      const winner: Outcome = found[me] >= TARGET ? s.players[me] : null;
+      // Over as soon as nobody can catch the leader (with two players: first to most of the mines).
+      const top = leader(found, MINES - found.reduce((a, b) => a + b, 0));
+      const winner: Outcome = top === null ? null : top === "draw" ? "draw" : s.players[top];
       return { ...s, cells, found, winner, last: { by: me, cell: m.cell, mine: true } }; // same player goes again
     }
     // Safe: show the count, and open outward from empty squares.
@@ -87,7 +90,7 @@ export const minefield: GameEngine<MinefieldState, MinefieldMove> = {
       cells[i] = n;
       if (n === 0) queue.push(...neighbours(i).filter((j) => cells[j] === null));
     }
-    return { ...s, cells, turn: (1 - me) as Seat, last: { by: me, cell: m.cell, mine: false } };
+    return { ...s, cells, turn: (me + 1) % s.players.length, last: { by: me, cell: m.cell, mine: false } };
   },
 
   winner: (s) => s.winner,
@@ -116,7 +119,7 @@ export const minefield: GameEngine<MinefieldState, MinefieldMove> = {
     });
     const sure = hidden.filter((i) => chance.get(i) === 1);
     if (sure.length) return { cell: pick(sure, rng) };
-    const minesLeft = MINES - s.found[0] - s.found[1];
+    const minesLeft = MINES - s.found.reduce((a, b) => a + b, 0);
     const baseline = minesLeft / hidden.length;
     const odds = (i: number) => chance.get(i) ?? baseline;
     const best = Math.max(...hidden.map(odds));

@@ -193,7 +193,8 @@ export function Room({ code }: { code: string }) {
   useEffect(() => setFastMode(localStorage.getItem("pg.fast") !== "0"), []);
 
   const myIdNow = view?.you && view.you.seat !== null ? view.you.id : null;
-  const peerIdNow = myIdNow ? view?.players.find((p) => p.id !== myIdNow)?.id ?? null : null;
+  // The direct link is one-to-one, so it is only used in two-player rooms.
+  const peerIdNow = myIdNow && view?.options.seats === 2 ? view.players.find((p) => p.id !== myIdNow)?.id ?? null : null;
 
   const onPeerMessage = useCallback((msg: unknown) => {
     const m = msg as { t?: string } & Record<string, unknown>;
@@ -379,11 +380,11 @@ export function Room({ code }: { code: string }) {
   // rematch. Room seats never change. Boards work in game order, so translate here.
   const gameOrder = ((view.state as { players?: string[] } | null)?.players ?? []) as string[];
   const roleOf = (id?: string) => (id ? gameOrder.indexOf(id) : -1);
-  const gameSeat = (myId && roleOf(myId) !== -1 ? roleOf(myId) : null) as 0 | 1 | null;
-  const gameNames: [string, string] = [nameOf(view, gameOrder[0] ?? null), nameOf(view, gameOrder[1] ?? null)];
+  const gameSeat = myId && roleOf(myId) !== -1 ? roleOf(myId) : null;
+  const gameNames = gameOrder.map((id) => nameOf(view, id));
+  const seats = view.options.seats;
   // Game seats listed in room-seat order: lets boards keep each player in the same place every game.
-  const firstSeat = roleOf(seat(0)?.id) === 1 ? 1 : 0;
-  const layout: [number, number] = [firstSeat, 1 - firstSeat];
+  const layout = Array.from({ length: seats }, (_, s) => roleOf(seat(s)?.id)).filter((r) => r >= 0);
   const vsComputer = view.players.some((p) => p.id === BOT_ID);
   const here = (id: string) => id === myId || id === BOT_ID || !presenceReady || online.has(id);
   const away = view.state && !view.winner ? view.players.filter((p) => !here(p.id)) : [];
@@ -393,7 +394,7 @@ export function Room({ code }: { code: string }) {
   const word = ui?.turnWord ?? "turn";
   const custom = playing && !view.winner ? ui?.status?.(view.state, gameSeat) ?? null : null;
   let status: string;
-  if (!playing) status = "Waiting for a friend to join…";
+  if (!playing) status = seats > 2 ? "Waiting for players…" : "Waiting for a friend to join…";
   else if (view.winner === "draw") status = "It's a draw";
   else if (view.winner) {
     const mine = view.winner === myId;
@@ -416,7 +417,8 @@ export function Room({ code }: { code: string }) {
     setSheet("account");
   };
   // After a game: one tap to befriend the person you just played.
-  const rival = isPlayer && !vsComputer ? view.players.find((p) => p.id !== myId) : undefined;
+  const rival = isPlayer && !vsComputer && view.players.length === 2 ? view.players.find((p) => p.id !== myId) : undefined;
+  const startNow = () => api(`/rooms/${code}/start`, {}).then(accept).catch((e: Error) => setError(e.message));
   const knowsRival = !!rival && [...session.social.friends, ...session.social.outgoing, ...session.social.incoming]
     .some((f) => f.id === rival.id);
   async function addRival() {
@@ -443,7 +445,7 @@ export function Room({ code }: { code: string }) {
         <span className="mr-auto min-w-0 truncate font-display text-lg font-extrabold">
           <span className="hidden sm:inline">{view.gameName}</span>
         </span>
-        {isPlayer && !vsComputer && (
+        {isPlayer && !vsComputer && seats === 2 && (
           <button
             onClick={() => {
               localStorage.setItem("pg.fast", fastMode ? "0" : "1");
@@ -484,12 +486,29 @@ export function Room({ code }: { code: string }) {
       <section className="flex min-w-0 flex-col gap-3 lg:col-start-2 lg:row-start-2">
         {/* Some games draw their own player cards (coins / health). */}
         {!(ui?.ownCards && playing) && (
-          <div className="grid grid-cols-2 gap-2">
-            {[0, 1].map((s) => {
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${seats}, minmax(0, 1fr))` }}>
+            {Array.from({ length: seats }, (_, s) => {
               const p = seat(s);
               const active = p && view.turn === p.id;
               const look = p ? lookFor(p) : null;
               const role = roleOf(p?.id);
+              if (seats > 2) {
+                // Three or four players: small chips, with the match score under each name.
+                return (
+                  <div
+                    key={s}
+                    className={`flex min-w-0 flex-col items-center gap-0.5 rounded-2xl border px-1 py-1.5 transition ${active ? "border-ink bg-surface" : "border-line"}`}
+                  >
+                    {look
+                      ? <Avatar avatar={look.avatar} color={look.color} size={30} online={here(p!.id)} />
+                      : <span className="size-[30px] shrink-0 rounded-full border border-dashed border-muted" />}
+                    <span className="w-full truncate text-center text-[11px] font-semibold">
+                      {p ? (p.id === myId ? "You" : p.name) : <span className="font-normal text-muted">open</span>}
+                    </span>
+                    {showScore && p && <span className="font-display text-xs leading-none font-extrabold tabular-nums">{winsOf(s)}</span>}
+                  </div>
+                );
+              }
               return (
                 <div
                   key={s}
@@ -513,15 +532,17 @@ export function Room({ code }: { code: string }) {
           </div>
         )}
 
-        {showScore && seat(0) && seat(1) && (
+        {showScore && (
           <div className="flex flex-col items-center gap-0.5" aria-label="Match score">
-            <div className="flex max-w-full items-center gap-2 text-sm">
-              <span className="min-w-0 truncate font-semibold">{seat(0)!.id === myId ? "You" : seat(0)!.name}</span>
-              <span className="shrink-0 rounded-full bg-surface px-3 py-0.5 font-display text-base font-extrabold tabular-nums">
-                {winsOf(0)} – {winsOf(1)}
-              </span>
-              <span className="min-w-0 truncate font-semibold">{seat(1)!.id === myId ? "You" : seat(1)!.name}</span>
-            </div>
+            {seats === 2 && seat(0) && seat(1) && (
+              <div className="flex max-w-full items-center gap-2 text-sm">
+                <span className="min-w-0 truncate font-semibold">{seat(0)!.id === myId ? "You" : seat(0)!.name}</span>
+                <span className="shrink-0 rounded-full bg-surface px-3 py-0.5 font-display text-base font-extrabold tabular-nums">
+                  {winsOf(0)} – {winsOf(1)}
+                </span>
+                <span className="min-w-0 truncate font-semibold">{seat(1)!.id === myId ? "You" : seat(1)!.name}</span>
+              </div>
+            )}
             <p className="text-xs text-muted">
               {options.bestOf > 1 ? `Best of ${options.bestOf} · first to ${winsNeeded(options.bestOf)}` : `${series.games} played`}
               {series.draws > 0 && ` · ${series.draws} draw${series.draws > 1 ? "s" : ""}`}
@@ -554,9 +575,12 @@ export function Room({ code }: { code: string }) {
             Connection lost — reconnecting…
           </p>
         )}
-        {away.map((p) => (
-          <AwayBanner key={p.id} name={p.name} forfeitAt={forfeitAt(view, p.id)} offset={offset} />
-        ))}
+        {seats > 2
+          ? away.length > 0 && (
+            // Bigger tables: one line for everyone who is away (nobody forfeits there).
+            <AwayBanner name={away.map((p) => p.name).join(" and ")} forfeitAt={null} offset={offset} auto />
+          )
+          : away.map((p) => <AwayBanner key={p.id} name={p.name} forfeitAt={forfeitAt(view, p.id)} offset={offset} />)}
       </section>
 
       {/* The game itself */}
@@ -575,6 +599,21 @@ export function Room({ code }: { code: string }) {
                 Invite a friend
               </button>
             </div>
+            {seats > 2 && (
+              <p className="text-sm">
+                <b>{view.players.length} of {seats}</b> players are here.{" "}
+                <span className="text-muted">
+                  {view.you?.seat === 0
+                    ? "It starts when everyone has joined — or start now with whoever is here."
+                    : "It starts when everyone has joined, or when the host starts it."}
+                </span>
+              </p>
+            )}
+            {seats > 2 && view.you?.seat === 0 && view.players.length >= view.minPlayers && (
+              <button onClick={startNow} className="h-12 rounded-2xl border-2 border-ink px-5 font-semibold">
+                Start with {view.players.length} players
+              </button>
+            )}
             {options.bestOf > 1 && <p className="text-sm text-muted">Best of {options.bestOf}</p>}
           </div>
         )}

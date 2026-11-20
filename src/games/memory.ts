@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { GameEngine, Outcome, Players } from "./types";
-import { pick, rngFrom, shuffle } from "./util";
+import { leader, pick, rngFrom, shuffle } from "./util";
 
 /**
  * Memory Match: flip two cards. A matching pair is yours and you go again; otherwise
@@ -11,7 +11,7 @@ import { pick, rngFrom, shuffle } from "./util";
 export const PAIRS = 10;
 export const COLS = 5;
 export const FACES = ["🍎", "🚀", "🎸", "🐙", "🌵", "⚽", "🎲", "🍩", "🦄", "🌙"];
-type Seat = 0 | 1;
+type Seat = number;
 
 export interface MemoryState {
   players: Players;
@@ -35,13 +35,14 @@ export type MemoryView = Omit<MemoryState, "cards"> & {
   faces: (number | null)[];
 };
 
-export const pairsWon = (s: Pick<MemoryState, "owner">) =>
-  [0, 1].map((seat) => s.owner.filter((o) => o === seat).length / 2) as [number, number];
+export const pairsWon = (s: Pick<MemoryState, "owner" | "players">) =>
+  s.players.map((_, seat) => s.owner.filter((o) => o === seat).length / 2);
 
 export const memory: GameEngine<MemoryState, MemoryMove> = {
   id: "memory",
   name: "Memory Match",
   hiddenInfo: true,
+  maxPlayers: 4,
   moveSchema: z.object({ card: z.number().int().min(0).max(PAIRS * 2 - 1) }),
 
   init(players, seed) {
@@ -77,12 +78,13 @@ export const memory: GameEngine<MemoryState, MemoryMove> = {
 
     const [a, b] = up;
     if (s.cards[a] !== s.cards[b]) {
-      return { ...s, up, seen, turn: (1 - s.turn) as Seat, last: { by: s.turn, cards: up, pair: false } };
+      return { ...s, up, seen, turn: (s.turn + 1) % s.players.length, last: { by: s.turn, cards: up, pair: false } };
     }
     const owner = [...s.owner];
     owner[a] = owner[b] = s.turn;
-    const [p0, p1] = pairsWon({ owner });
-    const winner: Outcome = p0 + p1 === PAIRS ? (p0 === p1 ? "draw" : s.players[p0 > p1 ? 0 : 1]) : null;
+    const won = pairsWon({ owner, players: s.players });
+    const top = owner.every((o) => o !== null) ? leader(won, 0) : null;
+    const winner: Outcome = top === null ? null : top === "draw" ? "draw" : s.players[top];
     return { ...s, up: [], seen, owner, winner, last: { by: s.turn, cards: up, pair: true } };
   },
 

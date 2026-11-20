@@ -5,7 +5,7 @@ import {
 } from "@/lib/server";
 
 /**
- * Next game in the same room, with the other player going first. The match score
+ * Next game in the same room, with the next player going first. The match score
  * carries over; once a best-of match is decided, this starts a new match.
  */
 export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/rematch">) {
@@ -21,8 +21,9 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/rematch"
     const { state: prev, meta } = unwrap(room.state);
     if (!prev || outcome(engine, prev, meta) === null) throw new HttpError(409, "Game still in progress");
 
-    const [p0, p1] = (prev as { players: [string, string] }).players;
-    const started = begin(engine, [p1, p0], Math.floor(Math.random() * 2 ** 31), meta, Date.now());
+    // The player who went first moves to the back of the order.
+    const [first, ...rest] = (prev as { players: string[] }).players;
+    const started = begin(engine, [...rest, first], Math.floor(Math.random() * 2 ** 31), meta, Date.now());
     const next = await commit(room, players, started, started.meta);
     return Response.json(roomView(next, players, who.id));
   });

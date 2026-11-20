@@ -2,6 +2,7 @@
 
 import { N, score, type DotsMove, type DotsState } from "@/games/dots";
 import type { BoardProps } from "./boards";
+import { scoreCols, seatColor } from "./seat";
 
 const STEP = 20; // SVG units between dots
 const PAD = 6;
@@ -13,7 +14,7 @@ export function DotsBoard({ state, mySeat, names, layout, myTurn, onMove }: Boar
   const s = state as DotsState;
   const pts = score(s);
   const who = (seat: number) => (seat === mySeat ? "You" : names[seat]);
-  const fill = (seat: number) => (seat === 0 ? "var(--x)" : "var(--o)");
+  const fill = seatColor;
   const isLast = (o: "h" | "v", r: number, c: number) => s.last?.o === o && s.last.r === r && s.last.c === c;
 
   const line = (o: "h" | "v", r: number, c: number) => {
@@ -48,7 +49,7 @@ export function DotsBoard({ state, mySeat, names, layout, myTurn, onMove }: Boar
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-2 text-center">
+      <div className="grid gap-2 text-center" style={scoreCols(layout.length)}>
         {layout.map((seat) => (
           <div key={seat} className="rounded-2xl bg-surface py-1.5">
             <span className="font-display text-2xl font-extrabold tabular-nums" style={{ color: fill(seat) }}>{pts[seat]}</span>

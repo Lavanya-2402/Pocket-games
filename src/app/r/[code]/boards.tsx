@@ -22,11 +22,11 @@ export interface BoardProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each board knows its own state shape
   state: any;
   /** The viewer's game seat, or null for spectators. */
-  mySeat: 0 | 1 | null;
+  mySeat: number | null;
   /** Player names by game seat. */
-  names: [string, string];
+  names: string[];
   /** Game seats in room-seat order, so positions and colours stay put across rematches. */
-  layout: [number, number];
+  layout: number[];
   /** Turn-based games: it is the viewer's turn. */
   myTurn: boolean;
   onMove: (move: unknown) => void;
@@ -39,16 +39,23 @@ export interface GameUI {
   /** The board draws its own player cards, so the room hides the generic ones. */
   ownCards?: boolean;
   /** Piece shown on a player's card, by game seat. */
-  mark?: (seat: 0 | 1) => string;
+  mark?: (seat: number) => string;
   /** Status line for phases that aren't plain "your turn"; null = use the default. */
-  status?: (state: BoardProps["state"], mySeat: 0 | 1 | null) => string | null;
+  status?: (state: BoardProps["state"], mySeat: number | null) => string | null;
   /** "turn" by default, e.g. "shot". */
   turnWord?: string;
 }
 
 const WIDE = "mx-auto w-full lg:max-w-lg";
 
-const lockIn = (verb: string) => (s: { pending: unknown[]; round: number }, me: 0 | 1 | null) =>
+/** The older two-player boards take fixed-size props. */
+const two = (p: BoardProps) => ({
+  mySeat: p.mySeat as 0 | 1 | null,
+  names: p.names as [string, string],
+  layout: p.layout as [number, number],
+});
+
+const lockIn = (verb: string) => (s: { pending: unknown[]; round: number }, me: number | null) =>
   me === null ? `Round ${s.round}: choosing…` : s.pending[me] ? "Locked in" : `Round ${s.round}: ${verb}`;
 
 export const GAME_UI: Record<string, GameUI> = {
@@ -64,7 +71,7 @@ export const GAME_UI: Record<string, GameUI> = {
   },
   bidtactoe: {
     Board: (p) => (
-      <BidTacToeBoard state={p.state} mySeat={p.mySeat} names={p.names} layout={p.layout} onBid={(bid, cell) => p.onMove({ bid, cell })} />
+      <BidTacToeBoard state={p.state} {...two(p)} onBid={(bid, cell) => p.onMove({ bid, cell })} />
     ),
     fit: WIDE,
     ownCards: true,
@@ -72,14 +79,14 @@ export const GAME_UI: Record<string, GameUI> = {
   },
   duel: {
     Board: (p) => (
-      <DuelBoard state={p.state} mySeat={p.mySeat} names={p.names} layout={p.layout} onAct={(action) => p.onMove({ action })} />
+      <DuelBoard state={p.state} {...two(p)} onAct={(action) => p.onMove({ action })} />
     ),
     fit: WIDE,
     ownCards: true,
     status: lockIn("pick your move"),
   },
   seabattle: {
-    Board: (p) => <SeaBattleBoard state={p.state} mySeat={p.mySeat} names={p.names} layout={p.layout} onMove={p.onMove} />,
+    Board: (p) => <SeaBattleBoard state={p.state} {...two(p)} onMove={p.onMove} />,
     fit: "w-full",
     turnWord: "shot",
     status: (s: SeaBattleView, me) =>
@@ -100,7 +107,7 @@ export const GAME_UI: Record<string, GameUI> = {
   minefield: { Board: MinefieldBoard, fit: "fit-tall" },
   liarsdice: { Board: LiarsDiceBoard, fit: WIDE },
   colorrush: {
-    Board: (p) => <ColorRushBoard state={p.state} mySeat={p.mySeat} names={p.names} layout={p.layout} onMove={p.onMove} />,
+    Board: (p) => <ColorRushBoard state={p.state} {...two(p)} onMove={p.onMove} />,
     fit: WIDE,
   },
 };

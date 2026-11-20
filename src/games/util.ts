@@ -34,3 +34,14 @@ export function shuffle<T>(arr: readonly T[], rand: () => number): T[] {
 
 /** Pick one item at random. */
 export const pick = <T>(items: readonly T[], rand: () => number): T => items[Math.floor(rand() * items.length)];
+
+/**
+ * Who has won a points race? Returns the leading seat once nobody can catch them
+ * (or the points have run out), "draw" for a tie at the end, or null while it's open.
+ */
+export function leader(scores: readonly number[], remaining: number): number | "draw" | null {
+  const sorted = [...scores].sort((a, b) => b - a);
+  const lead = sorted[0] - (sorted[1] ?? 0);
+  if (remaining === 0) return lead === 0 ? "draw" : scores.indexOf(sorted[0]);
+  return lead > remaining ? scores.indexOf(sorted[0]) : null;
+}

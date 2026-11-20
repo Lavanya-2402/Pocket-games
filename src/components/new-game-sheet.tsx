@@ -8,7 +8,7 @@ import { primaryBtn, Sheet } from "./ui";
 const KEY = "pg.newgame";
 
 function remembered(game: string): RoomOptions {
-  const base: RoomOptions = { bestOf: 1, private: false, bot: null, rules: {} };
+  const base: RoomOptions = { bestOf: 1, private: false, bot: null, rules: {}, seats: 2 };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}");
     return { ...base, bestOf: saved.bestOf ?? 1, rules: saved.rules?.[game] ?? {} };
@@ -55,6 +55,8 @@ function Form({
   const [o, setO] = useState<RoomOptions>(() => remembered(game));
   const canBot = !!engine?.botMove;
   const rules = engine?.rules ?? [];
+  const maxSeats = engine?.maxPlayers ?? 2;
+  const seatChoices = Array.from({ length: maxSeats - 1 }, (_, i) => i + 2).filter((n) => n >= (engine?.minPlayers ?? 2));
 
   const seg = (on: boolean) =>
     `h-11 rounded-xl text-sm font-semibold transition ${on ? "bg-surface shadow-sm" : "text-muted"}`;
@@ -93,6 +95,22 @@ function Form({
                 </button>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {maxSeats > 2 && !o.bot && (
+        <div>
+          <p className={label}>Players</p>
+          <div className="grid gap-1 rounded-2xl bg-bg p-1" style={{ gridTemplateColumns: `repeat(${seatChoices.length}, minmax(0, 1fr))` }}>
+            {seatChoices.map((n) => (
+              <button key={n} type="button" aria-pressed={o.seats === n} className={seg(o.seats === n)} onClick={() => setO({ ...o, seats: n })}>
+                {n} players
+              </button>
+            ))}
+          </div>
+          {o.seats > 2 && (
+            <p className="mt-1.5 text-xs text-muted">Starts when all {o.seats} have joined — or you can start early with fewer.</p>
           )}
         </div>
       )}
