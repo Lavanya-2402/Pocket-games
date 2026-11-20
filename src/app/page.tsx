@@ -195,7 +195,9 @@ export default function Home() {
       </div>
 
       <p className="text-center text-xs text-muted">
-        {group === "all" && <>{CATALOG.filter((x) => x.soon).length} more games are coming — tap a group to see them. </>}
+        {group === "all" && CATALOG.some((x) => x.soon) && (
+          <>{CATALOG.filter((x) => x.soon).length} more games are coming — tap a group to see them. </>
+        )}
         Tap a game to set it up, then share the code.
         {ready && !username && (
           <>

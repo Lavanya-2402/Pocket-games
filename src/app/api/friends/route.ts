@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getEngine } from "@/games";
 import { ACCOUNT_COLS, publicAccount, requireAccount, usernameSchema, type Account } from "@/lib/accounts";
+import { sendPush } from "@/lib/push";
 import { codeSchema, db, handle, HttpError, notify, parseBody } from "@/lib/server";
 
 const INVITE_MINUTES = 15;
@@ -93,6 +94,12 @@ export function POST(req: Request) {
       } else {
         const { error: insErr } = await db().from("friends").insert({ account_id: me.id, friend_id: target.id });
         if (insErr) throw insErr;
+        await sendPush(target.id, {
+          title: "New friend request",
+          body: `${me.display_name} (@${me.username}) wants to be friends`,
+          url: "/",
+          tag: `friend-${me.id}`,
+        });
       }
       await ping(target.id);
     } else if (body.action === "accept") {
@@ -118,7 +125,15 @@ export function POST(req: Request) {
       const { error } = await db().from("invites")
         .insert({ to_id: body.id, from_id: me.id, room_code: body.code, game: room.data.game });
       if (error) throw error;
-      await ping(body.id);
+      await Promise.all([
+        ping(body.id),
+        sendPush(body.id, {
+          title: `${me.display_name} invited you to play`,
+          body: `${getEngine(room.data.game)?.name ?? "A game"} — tap to join`,
+          url: `/r/${body.code}`,
+          tag: `invite-${body.code}`,
+        }),
+      ]);
     } else {
       await db().from("invites").delete().eq("id", body.invite).eq("to_id", me.id);
     }

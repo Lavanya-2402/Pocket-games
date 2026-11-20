@@ -3,69 +3,122 @@
 Two phones, one game. Create a room, share the 4-letter code, play.
 100% free stack: **Vercel Hobby** + **Supabase Free** (no credit card).
 
-**Games:** Tic Tac Toe · Connect Four · Bid-Tac-Toe · Duel · Sea Battle · Color Rush
-(each has a How to play card in the app).
+## Games
 
-**In every room:** turn timer, disconnect handling (≈60 s grace, then forfeit),
-online dots, chat, emoji reactions, sound (with mute), rematch, spectators.
+| Group | Games |
+|---|---|
+| **Boards** | Tic Tac Toe · Connect Four · Dots and Boxes · Territory · Five in a Row · Gravity Flip |
+| **Mind games** | Bid-Tac-Toe · Duel · Code Breaker · Liar's Dice |
+| **Hide & hunt** | Sea Battle · Minefield Duel · Memory Match |
+| **Cards** | Color Rush (with optional house rules) |
+
+Every game has a **How to play** card in the app. Ten of them can also be played against the
+**computer** (all except Bid-Tac-Toe, Duel, Sea Battle and Color Rush).
+
+## In every room
+
+- **Match options** when you create a room: play a friend or the computer (Easy / Hard), free play or
+  **best of 3 / 5**, **private room** (friends only, no spectators), and house rules where a game has them.
+- Score strip with win streak; turn timer; forfeit after about 60 s away; online dots.
+- Chat, emoji reactions, sound (with mute), rematch, spectators, "same Wi-Fi" fast mode.
+- When a game ends: **Watch the replay**, and **Add as a friend** for the person you just played.
+
+## Accounts (optional)
+
+Guests can play everything. An account adds:
+
+- **Profile:** name, avatar and colour (guests too, but saved only on that phone).
+- **Friends:** add by username, see who is online, invite a friend straight into your room.
+- **Records:** won / lost / drawn, a leaderboard of you and your friends, recent games with replays.
+- **Recently played with:** one tap to add as a friend or play again.
+- **Settings:** light / dark theme, five colour skins, sound, install as an app, invite notifications.
+
+Passwords are stored as one-way scrypt hashes, so nobody can read them, including the owner.
 
 ## One-time setup (~10 min)
 
 ### 1. Supabase (database + realtime)
 1. Sign up at https://supabase.com → **New project** (Free plan; any region near you).
-2. **SQL Editor → New query** → paste all of [`supabase/schema.sql`](supabase/schema.sql) → **Run**.
-3. **Project Settings → API Keys** → copy:
-   - Project URL
-   - **Publishable** key (`sb_publishable_…`, or legacy `anon`)
-   - **Secret** key (`sb_secret_…`, or legacy `service_role`) — keep private
+2. **SQL Editor → New query**, and run these three files in order (paste all → **Run**):
+   1. [`supabase/schema.sql`](supabase/schema.sql) — rooms and moves
+   2. [`supabase/migrations/002_accounts.sql`](supabase/migrations/002_accounts.sql) — accounts, friends, avatars
+   3. [`supabase/migrations/003_results_and_push.sql`](supabase/migrations/003_results_and_push.sql) — records, replays, notifications
+3. **Project Settings → API Keys** → copy the Project URL, the **Publishable** key and the **Secret** key.
+
+Each script is safe to run again. The app keeps working if a later one hasn't been run yet; the
+features it adds are simply switched off.
 
 > Free projects pause after 7 days without use. Hit **Restore** in the dashboard — free, data kept.
 
-### 2. Run locally (optional)
+### 2. Settings (environment variables)
+
+Copy `.env.example` to `.env.local` and fill it in. Add the same values on Vercel under
+**Project → Settings → Environment Variables**.
+
+| Name | Needed? | What it is |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase Project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | Supabase publishable (or legacy anon) key |
+| `SUPABASE_SECRET_KEY` | yes | Supabase secret (or legacy service_role) key — keep private |
+| `OWNER_USERNAMES` | optional | Usernames allowed to open the owner page, comma-separated |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | optional | Key pair for phone notifications. Make one with `npx web-push generate-vapid-keys` |
+| `VAPID_SUBJECT` | optional | Contact for push services (`mailto:` or a site address). Defaults to the Vercel site address |
+
+### 3. Run locally (optional)
 ```bash
-cp .env.example .env.local   # fill in the 3 values
 npm install
 npm run dev -- -H 0.0.0.0     # phones on the same Wi-Fi: open http://<PC-IP>:3000
 ```
 
-### 3. Deploy to Vercel (play from anywhere, any network)
+### 4. Deploy to Vercel (play from anywhere, any network)
 1. Push this folder to a GitHub repo.
 2. https://vercel.com → sign in with GitHub → **Add New → Project** → import the repo.
-3. **Environment Variables**: add the same 3 from `.env.example`.
+3. Add the environment variables from step 2.
 4. **Deploy**. Open the `*.vercel.app` URL on both phones.
+5. **Settings → Functions → Function Region**: pick the region nearest your Supabase project.
 
-Tip: on each phone, browser menu → **Add to Home Screen** for an app-like icon.
+On each phone: **Profile → Settings → Install as an app** for a home-screen icon and full-screen play.
 
-## How to play
-Phone A: enter name → pick a game → **Share** (or read out the code).
-Phone B: open the link, or enter the code → **Join**.
-Third+ people who join just spectate. **Rematch** swaps who goes first.
+## For the owner
 
-## Accounts, friends and profiles
-Playing as a guest still works with no sign-up. Accounts are optional and add friends, invites and a profile that follows you between phones.
+Create your own account in the app, put its username in `OWNER_USERNAMES`, and redeploy.
+**Profile → Account → Owner tools** (or `/owner`) then lets you:
 
-**One-time setup:** run [`supabase/migrations/002_accounts.sql`](supabase/migrations/002_accounts.sql) in the Supabase SQL Editor. Until then the app runs in guest-only mode.
+- see every account and how many phones it is logged in on;
+- **make a reset code** for someone who forgot their password. Tell them the code; they open
+  **Profile → Account → Forgot password** and enter username + code + a new password. It works once;
+- cancel a code, unlock an account after too many wrong passwords, log an account out everywhere, or delete it.
 
-- **Profile:** name, avatar and colour (guests too).
-- **Account:** username + password. Passwords are stored as one-way scrypt hashes, so nobody can read them, including the owner.
-- **Friends:** add by username, accept requests, see who is online, invite a friend into your room.
-
-**Helping someone who forgot their password:** in Supabase → Table Editor → `accounts`, type a short code into their `reset_code` cell and tell them the code. In the app they open Profile → Account → Forgot password and enter username + code + a new password. The code works once.
+Without the owner page you can do the same in Supabase: Table Editor → `accounts` → type a code into
+the `reset_code` cell.
 
 ## How it works
-- **Server is the authority.** Phones `POST /api/rooms/:code/move`; the server validates with the game engine, saves with an optimistic lock on `version`, logs to `moves`, then pings the room over Supabase Realtime. Each phone refetches *its own* view (so hidden-info games can hide cards later).
-- **Hidden info** (Bid-Tac-Toe, Duel, Sea Battle, Color Rush): `viewFor` filters each player's view on the server, so secret bids, ships and hands never reach the other phone.
-- **Turn timer** (`src/games/runner.ts`): each turn gets a deadline stored with the game state. Serverless has no background jobs, so phones call `POST /api/rooms/:code/tick` when it passes; the server checks the time and plays a safe automatic move. Missed turns adding up to ~60 s = forfeit.
-- **Presence, chat, reactions** go phone-to-phone over the room's Realtime channel (not stored).
-- Polling every 5 s is a fallback if realtime drops.
-- Identity is anonymous: a random id + secret in each phone's `localStorage`.
-- Database is locked with RLS; only the server (secret key) can touch it.
+
+- **Server is the authority.** Phones `POST /api/rooms/:code/move`; the server validates with the game
+  engine, saves with an optimistic lock on `version`, then pings the room over Supabase Realtime.
+- **Hidden information** (bids, ships, cards, dice, mines, codes): `viewFor` filters each player's view
+  on the server, so secrets never reach the other phone.
+- **Room options, score and clock** live beside the game state (`src/games/runner.ts`), together with
+  the seed and move log needed to replay the game.
+- **Turn timer:** serverless has no background jobs, so phones call `/tick` when a deadline passes;
+  the server checks the time itself and plays a safe automatic move.
+- **Computer opponent:** engines with a `botMove` reply in the same request. Games where each move
+  must be seen (Memory Match, Minefield Duel) are paced one move at a time.
+- **Results** are filed when a game ends; records and leaderboards are counted from them. Replays are
+  rebuilt on the phone from the seed and move log, and only people who were in the room may fetch one.
+- **Presence, chat and reactions** go phone-to-phone over the room's Realtime channel (not stored).
+- **Identity:** guests are a random id + secret kept on the phone; accounts use hashed session tokens.
+- **Database** is locked with RLS; only the server (secret key) can touch it.
 
 ## Adding a game
-1. `src/games/<game>.ts` implementing `GameEngine` from `src/games/types.ts` (including `timeLimit` and `autoMove`; set `hiddenInfo` and `viewFor` if anything is secret).
-2. Register it in `src/games/index.ts` and add its rules to `src/games/rules.ts`.
-3. Add a board component in `src/app/r/[code]/`, render it in `room.tsx`, and add a button on the home page.
+
+1. `src/games/<game>.ts` implementing `GameEngine` from `src/games/types.ts`
+   (`timeLimit` and `autoMove` are required; add `botMove` for a computer player, `rules` for house
+   rules, and `hiddenInfo` + `viewFor` if anything is secret).
+2. Register it in `src/games/index.ts`; add it to `src/games/catalog.ts` and `src/games/rules.ts`.
+3. Add a board component in `src/app/r/[code]/` and register it in `boards.tsx`.
 
 ```bash
-npm test     # engine unit tests
+npm test     # 190+ tests, including a suite that plays every registered game to a finish,
+             # against the computer, and replays it from its move log
 ```

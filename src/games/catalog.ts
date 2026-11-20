@@ -41,5 +41,4 @@ export const CATALOG: GameEntry[] = [
   { id: "memory", name: "Memory Match", tagline: "Flip and pair up", icon: "🧠", group: "hunt" },
 
   { id: "colorrush", name: "Color Rush", tagline: "Match colours, with house rules", icon: "🃏", group: "cards" },
-  { id: "gofish", name: "Go Fish", tagline: "Collect sets of four", icon: "", group: "cards", soon: true },
 ];

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, DM_Sans } from "next/font/google";
+import { PwaBoot } from "@/components/app-settings";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({ variable: "--font-display", subsets: ["latin"], weight: ["600", "800"] });
@@ -8,6 +9,8 @@ const body = DM_Sans({ variable: "--font-body", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Pocket Games",
   description: "Two phones, one game. Share a code and play.",
+  applicationName: "Pocket Games",
+  appleWebApp: { capable: true, title: "Pocket Games", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
@@ -28,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-dvh flex flex-col font-sans">
         {/* Runs before anything is drawn, so a saved theme never flashes the wrong colours. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        <PwaBoot />
         <main className="w-full flex-1 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
           {children}
         </main>

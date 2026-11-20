@@ -6,6 +6,7 @@ import {
   api, ApiError, clearIdentity, localProfile, me, realtime, setIdentity, setLocalProfile,
 } from "./client";
 import type { Profile } from "./profile";
+import { disablePush } from "./pwa";
 
 /**
  * Who is using this phone (guest or logged-in account), their friends, and which
@@ -133,6 +134,7 @@ export async function resetPassword(username: string, code: string, password: st
 }
 
 export async function logout() {
+  await disablePush(); // this phone shouldn't keep getting that account's notifications
   await api("/account/me", { logout: true }).catch(() => {});
   becomeGuest();
 }

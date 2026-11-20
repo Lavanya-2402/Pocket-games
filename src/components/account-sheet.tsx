@@ -6,6 +6,7 @@ import { AVATARS, COLOR_KEYS, COLORS, type Profile } from "@/lib/profile";
 import { changePassword, login, logout, register, resetPassword, saveProfile, useSession } from "@/lib/session";
 import { isMuted, play, setMuted } from "@/lib/sound";
 import { getSkin, getTheme, setSkin, setTheme, SKINS, THEMES, type Skin, type Theme } from "@/lib/theme";
+import { AppSettings } from "./app-settings";
 import { Avatar, ghostBtn, inputClass, primaryBtn, Sheet } from "./ui";
 
 export type AccountTab = "profile" | "account" | "settings";
@@ -191,6 +192,8 @@ function SettingsForm() {
           <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${sound ? "left-[1.375rem]" : "left-0.5"}`} />
         </span>
       </button>
+
+      <AppSettings />
     </div>
   );
 }
