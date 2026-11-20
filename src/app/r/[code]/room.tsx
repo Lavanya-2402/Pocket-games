@@ -572,6 +572,11 @@ export function Room({ code }: { code: string }) {
             {series.done ? "New match" : options.bestOf > 1 ? "Next game" : "Rematch"}
           </button>
         )}
+        {view.winner && view.replayId && (
+          <Link href={`/replay/${view.replayId}`} className="self-center text-sm text-muted underline">
+            ▶ Watch the replay
+          </Link>
+        )}
       </section>
 
       {/* Chat and reactions: pinned to the bottom of the screen on phones. */}

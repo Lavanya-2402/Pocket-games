@@ -50,6 +50,26 @@ describe.each(Object.values(GAMES).map((g) => [g.name, g] as const))("%s", (_nam
     });
   }
 
+  it("can be replayed exactly from its seed and move log", () => {
+    const rules = Object.fromEntries((engine.rules ?? []).map((r) => [r.id, true]));
+    for (const withRules of engine.rules?.length ? [false, true] : [false]) {
+      const rng = rngFrom(withRules ? 9100 : 9000).next;
+      const options = { ...DEFAULT_OPTIONS, rules: withRules ? rules : {} };
+      let { state, meta } = begin(engine, [A, B], 123456, newRoomMeta(options), 0);
+      for (let steps = 0; outcome(engine, state, meta) === null && steps < MAX_STEPS; steps++) {
+        const waiting = waitingOn(engine, state);
+        const p = waiting[Math.floor(rng() * waiting.length)];
+        ({ state, meta } = playerMove(engine, state, meta, engine.autoMove(state, p, rng), p, 0));
+      }
+      // What the results table stores, sent through JSON like the database would.
+      const saved = JSON.parse(JSON.stringify({ seed: meta.seed, order: meta.order, rules: meta.options.rules, log: meta.log }));
+      let replayed = engine.init(saved.order, saved.seed, saved.rules);
+      for (const [seat, move] of saved.log) replayed = engine.apply(replayed, move, saved.order[seat]);
+      expect(replayed).toEqual(state);
+      expect(saved.log.length).toBeGreaterThan(0);
+    }
+  });
+
   it("keeps its state as plain JSON (it is stored in the database)", () => {
     const { state } = begin(engine, [A, B], 5, null, 0);
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);

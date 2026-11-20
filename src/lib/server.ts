@@ -94,6 +94,18 @@ export async function hasProfileCols() {
   return profileCols;
 }
 
+// The results table arrives with migration 003. Same idea as above: remember a "yes".
+let resultsTable = false;
+let resultsProbedAt = 0;
+export async function hasResults() {
+  if (resultsTable) return true;
+  if (Date.now() - resultsProbedAt < 30_000) return false;
+  resultsProbedAt = Date.now();
+  const { error } = await db().from("results").select("id").limit(1);
+  resultsTable = !error;
+  return resultsTable;
+}
+
 /** True if this id + secret is a logged-in account session. */
 export async function validSession(who: { id: string; secret: string }) {
   const { data, error } = await db()
@@ -124,7 +136,8 @@ export interface PlayerRow {
 
 /** Room + players in a single round trip. */
 export async function loadRoom(code: string) {
-  const extra = (await hasProfileCols()) ? ", avatar, color" : "";
+  const [cols] = await Promise.all([hasProfileCols(), hasResults()]);
+  const extra = cols ? ", avatar, color" : "";
   const { data, error } = await db()
     .from("rooms")
     .select(`code, game, state, version, room_players(player_id, secret, name, seat, joined_at${extra})`)
@@ -252,8 +265,8 @@ export function roomView(room: RoomRow, players: PlayerRow[], viewerId: string |
     winner: live ? outcome(engine, state, meta) : null,
     options: meta.options,
     series: meta.series,
-    /** Id of the finished game's replay, once it has ended. */
-    replayId: live ? meta.resultId : null,
+    /** Id of the finished game's replay, once it has ended (and replays are being kept). */
+    replayId: live && resultsTable ? meta.resultId : null,
     clock: {
       deadline: meta.deadline,
       limit: live ? engine.timeLimit(state) : 0,

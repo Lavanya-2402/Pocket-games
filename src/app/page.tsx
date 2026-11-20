@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AccountSheet, type AccountTab } from "@/components/account-sheet";
 import { FriendsSheet } from "@/components/friends-sheet";
 import { NewGameSheet } from "@/components/new-game-sheet";
+import { StatsSheet } from "@/components/stats-sheet";
 import { RulesCard } from "@/components/how-to-play";
 import { Avatar, Sheet } from "@/components/ui";
 import { CATALOG, GROUPS, type GameEntry } from "@/games/catalog";
@@ -20,7 +21,7 @@ export default function Home() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [sheet, setSheet] = useState<null | "account" | "friends">(null);
+  const [sheet, setSheet] = useState<null | "account" | "friends" | "stats">(null);
   const [tab, setTab] = useState<AccountTab>("profile");
   const [rulesFor, setRulesFor] = useState<string | null>(null);
   const [newGame, setNewGame] = useState<string | null>(null);
@@ -62,6 +63,13 @@ export default function Home() {
       <header className="flex items-center gap-2">
         <h1 className="mr-auto font-display text-xl font-extrabold tracking-tight whitespace-nowrap sm:text-3xl">Pocket Games</h1>
         <button
+          onClick={() => setSheet("stats")}
+          aria-label="Records and leaderboard"
+          className="flex size-11 items-center justify-center rounded-full border border-line bg-surface"
+        >
+          <span aria-hidden>🏆</span>
+        </button>
+        <button
           onClick={() => setSheet("friends")}
           aria-label={alerts ? `Friends, ${alerts} new` : "Friends"}
           className="relative flex h-11 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-sm font-semibold"
@@ -80,10 +88,10 @@ export default function Home() {
             setSheet("account");
           }}
           aria-label="Your profile"
-          className="flex h-11 items-center gap-2 rounded-full border border-line bg-surface pr-3 pl-1"
+          className="flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-1 sm:pr-3"
         >
           <Avatar avatar={profile.avatar} color={profile.color} size={34} />
-          <span className="max-w-24 truncate text-sm font-semibold">
+          <span className={`max-w-24 truncate text-sm font-semibold ${profile.name ? "hidden sm:inline" : "pr-2"}`}>
             {!ready ? "" : profile.name || "Set name"}
           </span>
         </button>
@@ -221,6 +229,14 @@ export default function Home() {
         onCreate={create}
         busy={busy !== null}
         loggedIn={!!username}
+      />
+      <StatsSheet
+        open={sheet === "stats"}
+        onClose={() => setSheet(null)}
+        onNeedAccount={() => {
+          setTab("account");
+          setSheet("account");
+        }}
       />
       <Sheet open={rulesFor !== null} onClose={() => setRulesFor(null)} title="How to play">
         {rulesFor && <RulesCard game={rulesFor} />}
