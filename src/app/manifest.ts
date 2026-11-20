@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Pocket Games",
     short_name: "Pocket Games",
-    description: "Two phones, one game. Share a code and play.",
+    description: "27 games to play with friends, each on your own phone. Share a code and play.",
     start_url: "/",
     scope: "/",
     display: "standalone",

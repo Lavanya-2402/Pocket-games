@@ -9,7 +9,7 @@ const body = DM_Sans({ variable: "--font-body", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Pocket Games",
-  description: "Two phones, one game. Share a code and play.",
+  description: "27 games to play with friends, each on your own phone. Share a code and play.",
   applicationName: "Pocket Games",
   appleWebApp: { capable: true, title: "Pocket Games", statusBarStyle: "black-translucent" },
 };

@@ -1,25 +1,33 @@
 # Pocket Games
 
-Two phones, one game. Create a room, share the 4-letter code, play.
+27 games to play with friends, each on your own phone. Create a room, share the 4-letter code, play.
+Most games are for two; twelve of them take up to four players.
 100% free stack: **Vercel Hobby** + **Supabase Free** (no credit card).
 
 ## Games
 
-| Group | Games |
+| Shelf | Games |
 |---|---|
-| **Boards** | Tic Tac Toe · Connect Four · Dots and Boxes · Territory · Five in a Row · Gravity Flip |
-| **Mind games** | Bid-Tac-Toe · Duel · Code Breaker · Liar's Dice |
-| **Hide & hunt** | Sea Battle · Minefield Duel · Memory Match |
-| **Cards** | Color Rush (with optional house rules) |
+| **Boards** | Tic Tac Toe · Connect Four · Dots and Boxes ★ · Territory · Five in a Row · Gravity Flip |
+| **Strategy** | Chess · Checkers · Reversi · Mancala · Matchsticks |
+| **Dice** | Ludo ★ · Yacht Dice ★ · Greedy Dice ★ · Climb & Slide ★ |
+| **Tiles** | Tile Match ★ · Dominoes ★ |
+| **Cards** | Color Rush ★ (with optional house rules) · Go Fish ★ |
+| **Mind games** | Bid-Tac-Toe · Duel · Code Breaker · Liar's Dice ★ · Rock Paper Scissors |
+| **Hide & hunt** | Sea Battle · Minefield Duel ★ · Memory Match ★ |
 
-Every game has a **How to play** card in the app. Ten of them can also be played against the
-**computer** (all except Bid-Tac-Toe, Duel, Sea Battle and Color Rush).
+★ = for 2 to 4 players. Choose the number of players when you create the room; it starts when the
+last seat is taken, or the host can start early. Anyone who arrives later watches.
+
+Every game has a **How to play** card in the app. All of them except Bid-Tac-Toe, Duel, Sea Battle
+and Color Rush can also be played against the **computer** (Easy or Hard).
 
 ## In every room
 
-- **Match options** when you create a room: play a friend or the computer (Easy / Hard), free play or
+- **Match options** when you create a room: play friends or the computer (Easy / Hard), 2 to 4 players, free play or
   **best of 3 / 5**, **private room** (friends only, no spectators), and house rules where a game has them.
-- Score strip with win streak; turn timer; forfeit after about 60 s away; online dots.
+- Score strip with win streak; turn timer; forfeit after about 60 s away (two-player games; with more
+  players an absent player's turns are played for them); online dots.
 - Chat, emoji reactions, sound (with mute), rematch, spectators, "same Wi-Fi" fast mode.
 - When a game ends: **Watch the replay**, and **Add as a friend** for the person you just played.
 
@@ -63,6 +71,7 @@ Copy `.env.example` to `.env.local` and fill it in. Add the same values on Verce
 | `OWNER_USERNAMES` | optional | Usernames allowed to open the owner page, comma-separated |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | optional | Key pair for phone notifications. Make one with `npx web-push generate-vapid-keys` |
 | `VAPID_SUBJECT` | optional | Contact for push services (`mailto:` or a site address). Defaults to the Vercel site address |
+| `CRON_SECRET` | optional | Any long random text. If set, only Vercel's own scheduler may call the clean-up address |
 
 ### 3. Run locally (optional)
 ```bash
@@ -92,6 +101,17 @@ Create your own account in the app, put its username in `OWNER_USERNAMES`, and r
 Without the owner page you can do the same in Supabase: Table Editor → `accounts` → type a code into
 the `reset_code` cell.
 
+## Keeping the database small
+
+Nothing needs doing by hand. Old data is removed automatically:
+
+- a room is deleted an hour after its game finished (or was never started), and after a day in any case;
+- the old move table is emptied — moves now live inside the room and its replay;
+- invites older than 15 minutes are removed;
+- a replay's move list is dropped after 30 days (the win/loss record stays for ever).
+
+This runs in the background whenever games are played, and once a night from `vercel.json`.
+
 ## How it works
 
 - **Server is the authority.** Phones `POST /api/rooms/:code/move`; the server validates with the game
@@ -114,11 +134,12 @@ the `reset_code` cell.
 
 1. `src/games/<game>.ts` implementing `GameEngine` from `src/games/types.ts`
    (`timeLimit` and `autoMove` are required; add `botMove` for a computer player, `rules` for house
-   rules, and `hiddenInfo` + `viewFor` if anything is secret).
+   rules, `maxPlayers` for more than two players, and `hiddenInfo` + `viewFor` if anything is secret.
+   Randomness after the deal must come from a seed kept in the state, and `viewFor` must hide it).
 2. Register it in `src/games/index.ts`; add it to `src/games/catalog.ts` and `src/games/rules.ts`.
 3. Add a board component in `src/app/r/[code]/` and register it in `boards.tsx`.
 
 ```bash
-npm test     # 190+ tests, including a suite that plays every registered game to a finish,
-             # against the computer, and replays it from its move log
+npm test     # 360 tests, including a suite that plays every registered game to a finish — with
+             # 2, 3 and 4 players, against the computer — and replays it from its move log
 ```
