@@ -40,7 +40,6 @@ export const CATALOG: GameEntry[] = [
   { id: "minefield", name: "Minefield Duel", tagline: "Find more mines", icon: "💣", group: "hunt" },
   { id: "memory", name: "Memory Match", tagline: "Flip and pair up", icon: "🧠", group: "hunt" },
 
-  { id: "colorrush", name: "Color Rush", tagline: "Match colours, shed cards", icon: "🃏", group: "cards" },
-  { id: "rushrules", name: "Color Rush house rules", tagline: "Stacking, Swap 7, Last card", icon: "", group: "cards", soon: true },
+  { id: "colorrush", name: "Color Rush", tagline: "Match colours, with house rules", icon: "🃏", group: "cards" },
   { id: "gofish", name: "Go Fish", tagline: "Collect sets of four", icon: "", group: "cards", soon: true },
 ];

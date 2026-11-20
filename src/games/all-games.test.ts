@@ -32,6 +32,24 @@ describe.each(Object.values(GAMES).map((g) => [g.name, g] as const))("%s", (_nam
     }
   });
 
+  if (engine.rules?.length) {
+    it("also plays to a finish with every house rule switched on", () => {
+      const rules = Object.fromEntries(engine.rules!.map((r) => [r.id, true]));
+      for (let game = 0; game < 12; game++) {
+        const rng = rngFrom(3000 + game).next;
+        let { state, meta } = begin(engine, [A, B], 41 + game, newRoomMeta({ ...DEFAULT_OPTIONS, rules }), 0);
+        let steps = 0;
+        while (outcome(engine, state, meta) === null) {
+          const p = waitingOn(engine, state)[0];
+          const move = engine.autoMove(state, p, rng);
+          expect(engine.validate(state, move, p), `auto move ${JSON.stringify(move)}`).toBeNull();
+          ({ state, meta } = playerMove(engine, state, meta, move, p, 0));
+          expect(++steps).toBeLessThan(MAX_STEPS);
+        }
+      }
+    });
+  }
+
   it("keeps its state as plain JSON (it is stored in the database)", () => {
     const { state } = begin(engine, [A, B], 5, null, 0);
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);

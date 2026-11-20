@@ -11,6 +11,8 @@ import { rngFrom, shuffle } from "./util";
  *  - Rainbow +4: choose the color, opponent draws 4 and loses their turn
  * Can't (or don't want to) play? Draw one. If it's playable you may play it, else pass.
  * First to empty their hand wins. The deck order and the opponent's hand stay secret.
+ *
+ * Optional house rules (chosen when the room is created) are listed in RULES below.
  */
 
 export const COLORS = ["coral", "gold", "teal", "violet"] as const;
@@ -18,7 +20,18 @@ export type Color = (typeof COLORS)[number];
 export type Kind = "num" | "block" | "plus2" | "wild" | "wild4";
 export interface Card { id: number; kind: Kind; color: Color | null; value: number | null }
 export const HAND_SIZE = 7;
+export const RUSH_HAND = 5;
 type Seat = 0 | 1;
+
+export const RULES = [
+  { id: "stacking", label: "Stacking", hint: "Answer a +2 with your own +2 (or a +4 with a +4) and the total passes back." },
+  { id: "swap", label: "Swap 7 / Spin 0", hint: "Playing a 7 or a 0 swaps hands with your opponent." },
+  { id: "jumpin", label: "Jump-in", hint: "Holding the exact same card as the top one? Play it at once, even out of turn." },
+  { id: "drawmatch", label: "Draw till match", hint: "If you can't play, keep drawing until you can." },
+  { id: "lastcard", label: "Last-card call", hint: "Call \"Last card!\" when you're down to one — or be caught and draw 2." },
+  { id: "rush", label: "Rush mode", hint: "10-second turns and 5-card hands." },
+];
+export type RuleId = "stacking" | "swap" | "jumpin" | "drawmatch" | "lastcard" | "rush";
 
 export interface ColorRushState {
   players: Players;
@@ -29,14 +42,28 @@ export interface ColorRushState {
   turn: Seat;
   drew: boolean; // current player already drew this turn
   seed: number; // RNG state for reshuffles — secret
-  last: { by: Seat; play: Card | null; drew: number; color: Color | null; forced: number } | null;
+  last: {
+    by: Seat; play: Card | null; drew: number; color: Color | null; forced: number;
+    /** What else happened: hands swapped, a jump-in, a last-card call, or a catch. */
+    note?: "swap" | "jumpin" | "call" | "catch";
+  } | null;
   winner: Outcome;
+  /** House rules in force. */
+  rules: Partial<Record<RuleId, boolean>>;
+  /** Stacking: cards the player to move must draw unless they answer with the same kind. */
+  stack: number;
+  stackKind: "plus2" | "wild4" | null;
+  /** Last-card call: who has said it, and who is on one card without having said it. */
+  called: [boolean, boolean];
+  uncalled: Seat | null;
 }
 
 export type ColorRushMove =
   | { type: "play"; card: number; color?: Color }
   | { type: "draw" }
-  | { type: "pass" };
+  | { type: "pass" }
+  | { type: "call" }
+  | { type: "catch" };
 
 export interface ColorRushView {
   players: Players;
@@ -49,6 +76,11 @@ export interface ColorRushView {
   deckCount: number;
   last: ColorRushState["last"];
   winner: Outcome;
+  rules: ColorRushState["rules"];
+  stack: number;
+  stackKind: ColorRushState["stackKind"];
+  called: [boolean, boolean];
+  uncalled: Seat | null;
 }
 
 export function buildDeck(): Card[] {
@@ -76,6 +108,10 @@ export function canPlay(card: Card, top: Card, color: Color) {
   return card.kind === top.kind;
 }
 
+/** Same colour and same number/symbol (Rainbows never count): the jump-in test. */
+export const identical = (card: Card, top: Card) =>
+  card.color !== null && card.kind === top.kind && card.color === top.color && card.value === top.value;
+
 /** Draw n cards, reshuffling the discard pile (minus its top card) when the deck runs out. */
 function draw(s: ColorRushState, seat: Seat, n: number): ColorRushState {
   let deck = [...s.deck];
@@ -100,99 +136,191 @@ function draw(s: ColorRushState, seat: Seat, n: number): ColorRushState {
 const top = (s: ColorRushState) => s.discard[s.discard.length - 1];
 const other = (seat: Seat) => (1 - seat) as Seat;
 
+/** Games stored before house rules existed lack these fields; fill them in. */
+function withDefaults(s: ColorRushState): ColorRushState {
+  return s.rules ? s : { ...s, rules: {}, stack: 0, stackKind: null, called: [false, false], uncalled: null };
+}
+
+/** A "Last card!" call only stands while that player is on one or two cards. */
+function tidy(s: ColorRushState): ColorRushState {
+  const called = s.called.map((c, i) => c && s.hands[i].length <= 2) as [boolean, boolean];
+  return { ...s, called };
+}
+
 export const colorRush: GameEngine<ColorRushState, ColorRushMove> = {
   id: "colorrush",
   name: "Color Rush",
   hiddenInfo: true,
+  rules: RULES,
   moveSchema: z.discriminatedUnion("type", [
     z.object({ type: z.literal("play"), card: z.number().int(), color: z.enum(COLORS).optional() }),
     z.object({ type: z.literal("draw") }),
     z.object({ type: z.literal("pass") }),
+    z.object({ type: z.literal("call") }),
+    z.object({ type: z.literal("catch") }),
   ]),
 
-  init(players, seed) {
+  init(players, seed, rules = {}) {
     const r = rngFrom(seed);
     let deck = shuffle(buildDeck(), r.next);
     // Start on a number card.
     while (deck[deck.length - 1].kind !== "num") deck = shuffle(deck, r.next);
     const first = deck.pop()!;
     const hands: [Card[], Card[]] = [[], []];
-    for (let i = 0; i < HAND_SIZE; i++) for (const seat of [0, 1] as Seat[]) hands[seat].push(deck.pop()!);
+    const size = rules.rush ? RUSH_HAND : HAND_SIZE;
+    for (let i = 0; i < size; i++) for (const seat of [0, 1] as Seat[]) hands[seat].push(deck.pop()!);
     return {
       players, hands, deck, discard: [first], color: first.color!, turn: 0, drew: false,
       seed: r.seed(), last: null, winner: null,
+      rules, stack: 0, stackKind: null, called: [false, false], uncalled: null,
     };
   },
 
-  validate(s, move, playerId) {
+  validate(raw, move, playerId) {
+    const s = withDefaults(raw);
     if (s.winner) return "Game is over";
-    const seat = s.players.indexOf(playerId);
-    if (seat === -1) return "You are not a player in this game";
-    if (seat !== s.turn) return "Not your turn";
-    if (move.type === "draw") return s.drew ? "You already drew this turn" : null;
-    if (move.type === "pass") return s.drew ? null : "Draw a card first";
-    const card = s.hands[seat].find((c) => c.id === move.card);
-    if (!card) return "You don't have that card";
-    if (!canPlay(card, top(s), s.color)) return "That card doesn't match";
-    if ((card.kind === "wild" || card.kind === "wild4") && !move.color) return "Pick a color";
-    return null;
+    const seat = s.players.indexOf(playerId) as Seat;
+    if ((seat as number) === -1) return "You are not a player in this game";
+    const myTurn = seat === s.turn;
+
+    if (move.type === "call") {
+      if (!s.rules.lastcard) return "Last-card calls aren't on in this game";
+      if (s.hands[seat].length > 2) return "Call it when you're down to your last cards";
+      return s.called[seat] ? "You've already called it" : null;
+    }
+    if (move.type === "catch") {
+      return s.rules.lastcard && s.uncalled === other(seat) ? null : "Nothing to catch";
+    }
+    if (move.type === "play") {
+      const card = s.hands[seat].find((c) => c.id === move.card);
+      if (!card) return "You don't have that card";
+      if (!myTurn) {
+        // Jump-in: the exact same card, while nothing else is pending.
+        return s.rules.jumpin && s.stack === 0 && !s.drew && identical(card, top(s)) ? null : "Not your turn";
+      }
+      if (s.stack > 0 && card.kind !== s.stackKind) {
+        return `Answer with a ${s.stackKind === "plus2" ? "+2" : "+4"}, or draw ${s.stack}`;
+      }
+      if (!canPlay(card, top(s), s.color)) return "That card doesn't match";
+      if (card.color === null && !move.color) return "Pick a color";
+      return null;
+    }
+    if (!myTurn) return "Not your turn";
+    if (move.type === "draw") return s.stack > 0 || !s.drew ? null : "You already drew this turn";
+    if (s.stack > 0) return `Draw ${s.stack} first`;
+    return s.drew ? null : "Draw a card first";
   },
 
-  apply(s, move, playerId) {
-    const seat = s.players.indexOf(playerId) as Seat;
+  apply(raw, move, playerId) {
+    const start = withDefaults(raw);
+    const seat = start.players.indexOf(playerId) as Seat;
     const opp = other(seat);
+    const blank = { by: seat, play: null, drew: 0, color: null, forced: 0 };
 
-    if (move.type === "pass") {
-      return { ...s, turn: opp, drew: false, last: { by: seat, play: null, drew: 0, color: null, forced: 0 } };
+    if (move.type === "call") {
+      const called: [boolean, boolean] = [...start.called];
+      called[seat] = true;
+      return { ...start, called, uncalled: start.uncalled === seat ? null : start.uncalled, last: { ...blank, note: "call" } };
+    }
+    if (move.type === "catch") {
+      return tidy({ ...draw(start, opp, 2), uncalled: null, last: { ...blank, forced: 2, note: "catch" } });
     }
 
+    // Making an ordinary move means you didn't catch the other player in time.
+    const s = start.uncalled === opp ? { ...start, uncalled: null } : start;
+
+    if (move.type === "pass") return tidy({ ...s, turn: opp, drew: false, last: blank });
+
     if (move.type === "draw") {
-      const next = draw(s, seat, 1);
-      const got = next.hands[seat][next.hands[seat].length - 1];
-      const drewOne = next.hands[seat].length > s.hands[seat].length;
-      const last = { by: seat, play: null, drew: drewOne ? 1 : 0, color: null, forced: 0 };
-      // Drawn card unplayable (or nothing to draw): turn passes automatically.
-      if (!drewOne || !canPlay(got, top(s), s.color)) return { ...next, turn: opp, drew: false, last };
-      return { ...next, drew: true, last };
+      if (s.stack > 0) {
+        // Take the stacked penalty and lose the turn.
+        const took = draw(s, seat, s.stack);
+        return tidy({ ...took, stack: 0, stackKind: null, turn: opp, drew: false, last: { ...blank, drew: s.stack } });
+      }
+      let next = s;
+      let count = 0;
+      let got: Card | undefined;
+      const limit = s.rules.drawmatch ? 200 : 1;
+      while (count < limit) {
+        const before = next.hands[seat].length;
+        next = draw(next, seat, 1);
+        if (next.hands[seat].length === before) break; // nothing left to draw
+        count++;
+        got = next.hands[seat][next.hands[seat].length - 1];
+        if (canPlay(got, top(s), s.color)) break;
+      }
+      const last = { ...blank, drew: count };
+      // Nothing playable drawn: the turn passes automatically.
+      if (!got || !canPlay(got, top(s), s.color)) return tidy({ ...next, turn: opp, drew: false, last });
+      return tidy({ ...next, drew: true, last });
     }
 
     const card = s.hands[seat].find((c) => c.id === move.card)!;
-    const hands: ColorRushState["hands"] = [...s.hands];
+    const jumpIn = seat !== s.turn;
+    let hands: ColorRushState["hands"] = [...s.hands];
     hands[seat] = s.hands[seat].filter((c) => c.id !== card.id);
+    const winner = hands[seat].length === 0 ? s.players[seat] : null;
     let next: ColorRushState = {
       ...s, hands, discard: [...s.discard, card], color: card.color ?? move.color!, drew: false,
     };
-    const forced = card.kind === "plus2" ? 2 : card.kind === "wild4" ? 4 : 0;
-    if (forced) next = draw(next, opp, forced);
-    const again = card.kind === "block" || forced > 0; // opponent loses their turn
-    const winner = hands[seat].length === 0 ? s.players[seat] : null;
-    return {
-      ...next,
-      turn: again && !winner ? seat : opp,
-      winner,
-      last: { by: seat, play: card, drew: 0, color: card.color ? null : move.color!, forced },
-    };
+
+    const penalty = card.kind === "plus2" ? 2 : card.kind === "wild4" ? 4 : 0;
+    let forced = 0;
+    let again = card.kind === "block"; // opponent loses their turn
+    let { stack, stackKind } = s;
+    if (penalty && !winner) {
+      if (s.rules.stacking) {
+        stack += penalty; // the other player must answer or take the lot
+        stackKind = card.kind as "plus2" | "wild4";
+      } else {
+        next = draw(next, opp, penalty);
+        forced = penalty;
+        again = true;
+      }
+    }
+
+    let note: "swap" | "jumpin" | undefined = jumpIn ? "jumpin" : undefined;
+    if (s.rules.swap && !winner && card.kind === "num" && (card.value === 7 || card.value === 0)) {
+      hands = [next.hands[1], next.hands[0]];
+      next = { ...next, hands };
+      note = "swap";
+    }
+
+    // Down to one card without having called it? You can be caught.
+    const uncalled = s.rules.lastcard && !winner && next.hands[seat].length === 1 && !s.called[seat] ? seat : next.uncalled;
+
+    return tidy({
+      ...next, stack, stackKind, uncalled, winner,
+      turn: winner ? s.turn : stack > 0 ? opp : again ? seat : opp,
+      last: { by: seat, play: card, drew: 0, color: card.color ? null : move.color!, forced, note },
+    });
   },
 
   winner: (s) => s.winner,
   turn: (s) => (s.winner ? null : s.players[s.turn]),
-  timeLimit: () => 30,
+  timeLimit: (s) => (s.rules?.rush ? 10 : 30),
 
-  autoMove(s, playerId) {
+  autoMove(raw, playerId) {
+    const s = withDefaults(raw);
     const seat = s.players.indexOf(playerId) as Seat;
     const hand = s.hands[seat];
-    const playable = hand.filter((c) => canPlay(c, top(s), s.color));
-    if (playable.length) {
-      const card = playable.find((c) => c.color !== null) ?? playable[0];
-      if (card.color) return { type: "play", card: card.id };
-      // Rainbow: pick the color we hold most of.
-      const counts = COLORS.map((col) => hand.filter((c) => c.color === col).length);
-      return { type: "play", card: card.id, color: COLORS[counts.indexOf(Math.max(...counts))] };
+    // Rainbow: pick the color we hold most of.
+    const counts = COLORS.map((col) => hand.filter((c) => c.color === col).length);
+    const bestColor = COLORS[counts.indexOf(Math.max(...counts))];
+    const play = (card: Card): ColorRushMove =>
+      card.color ? { type: "play", card: card.id } : { type: "play", card: card.id, color: bestColor };
+
+    if (s.stack > 0) {
+      const answer = hand.find((c) => c.kind === s.stackKind);
+      return answer ? play(answer) : { type: "draw" };
     }
+    const playable = hand.filter((c) => canPlay(c, top(s), s.color));
+    if (playable.length) return play(playable.find((c) => c.color !== null) ?? playable[0]);
     return s.drew ? { type: "pass" } : { type: "draw" };
   },
 
-  viewFor(s, viewerId): ColorRushView {
+  viewFor(raw, viewerId): ColorRushView {
+    const s = withDefaults(raw);
     const me = viewerId ? s.players.indexOf(viewerId) : -1;
     return {
       players: s.players,
@@ -205,6 +333,11 @@ export const colorRush: GameEngine<ColorRushState, ColorRushMove> = {
       deckCount: s.deck.length,
       last: s.last,
       winner: s.winner,
+      rules: s.rules,
+      stack: s.stack,
+      stackKind: s.stackKind,
+      called: s.called,
+      uncalled: s.uncalled,
     };
   },
 };

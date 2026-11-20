@@ -13,6 +13,7 @@ function rig(handA: Card[], handB: Card[], topCard: Card, deck: Card[] = []): Co
   return {
     players: [A, B], hands: [handA, handB], deck, discard: [topCard], color: topCard.color ?? "coral",
     turn: 0, drew: false, seed: 1, last: null, winner: null,
+    rules: {}, stack: 0, stackKind: null, called: [false, false], uncalled: null,
   };
 }
 
@@ -124,5 +125,102 @@ describe("color rush", () => {
     const none = rig([c("num", "gold", 1, 1)], [], top);
     expect(g.autoMove(none, A, Math.random)).toEqual({ type: "draw" });
     expect(g.autoMove({ ...none, drew: true }, A, Math.random)).toEqual({ type: "pass" });
+  });
+});
+
+describe("color rush house rules", () => {
+  const on = (s: ColorRushState, ...ids: string[]): ColorRushState =>
+    ({ ...s, rules: Object.fromEntries(ids.map((id) => [id, true])), stack: 0, stackKind: null, called: [false, false], uncalled: null });
+  const top7 = c("num", "coral", 7, 0);
+  const deck = () => Array.from({ length: 12 }, (_, i) => c("num", "teal", (i % 9) + 1, 50 + i));
+
+  it("rush mode deals 5 cards and has 10-second turns", () => {
+    const s = g.init([A, B], 3, { rush: true });
+    expect(s.hands[0]).toHaveLength(5);
+    expect(g.timeLimit(s)).toBe(10);
+    expect(g.timeLimit(g.init([A, B], 3))).toBe(30);
+  });
+
+  it("stacking: a +2 can be answered with a +2, and the total lands on whoever can't answer", () => {
+    let s = on(rig([c("plus2", "coral", null, 1), c("num", "gold", 1, 2)], [c("plus2", "teal", null, 3), c("num", "gold", 2, 4)], top7, deck()), "stacking");
+    s = g.apply(s, { type: "play", card: 1 }, A);
+    expect(s).toMatchObject({ stack: 2, stackKind: "plus2", turn: 1 });
+    expect(s.hands[1]).toHaveLength(2); // nothing drawn yet
+    expect(g.validate(s, { type: "play", card: 4 }, B)).toMatch(/Answer with a \+2, or draw 2/);
+    expect(g.validate(s, { type: "pass" }, B)).toBe("Draw 2 first");
+    s = g.apply(s, { type: "play", card: 3 }, B);
+    expect(s).toMatchObject({ stack: 4, turn: 0 });
+    s = g.apply(s, { type: "draw" }, A); // Alice can't answer: takes 4 and loses her turn
+    expect(s.hands[0]).toHaveLength(5);
+    expect(s).toMatchObject({ stack: 0, stackKind: null, turn: 1 });
+  });
+
+  it("swap: playing a 7 or a 0 swaps hands", () => {
+    const mine = [c("num", "coral", 7, 1), c("num", "gold", 1, 2)];
+    const theirs = [c("num", "teal", 9, 3), c("num", "teal", 8, 4), c("num", "teal", 6, 5)];
+    const s = g.apply(on(rig(mine, theirs, top7), "swap"), { type: "play", card: 1 }, A);
+    expect(s.hands[0].map((x) => x.id)).toEqual([3, 4, 5]);
+    expect(s.hands[1].map((x) => x.id)).toEqual([2]);
+    expect(s.last?.note).toBe("swap");
+    // Playing your very last card still just wins.
+    const win = g.apply(on(rig([c("num", "coral", 0, 1)], theirs, top7), "swap"), { type: "play", card: 1 }, A);
+    expect(g.winner(win)).toBe(A);
+  });
+
+  it("jump-in: the exact same card can be played out of turn, but nothing else", () => {
+    const s = on(rig([c("num", "gold", 1, 1)], [c("num", "coral", 7, 2), c("num", "coral", 3, 3)], top7), "jumpin");
+    expect(g.validate(s, { type: "play", card: 3 }, B)).toBe("Not your turn");
+    expect(g.validate(s, { type: "play", card: 2 }, B)).toBeNull();
+    const next = g.apply(s, { type: "play", card: 2 }, B);
+    expect(next.hands[1]).toHaveLength(1);
+    expect(next.last?.note).toBe("jumpin");
+    expect(next.turn).toBe(0); // Alice still gets her turn
+    // Without the rule it's refused.
+    expect(g.validate(rig([], [c("num", "coral", 7, 2)], top7), { type: "play", card: 2 }, B)).toBe("Not your turn");
+  });
+
+  it("draw till match keeps drawing until something fits", () => {
+    const pile = [c("num", "coral", 2, 20), c("num", "teal", 4, 21), c("num", "violet", 5, 22)]; // drawn from the end
+    const s = g.apply(on(rig([c("num", "gold", 1, 1)], [c("num", "teal", 9, 2)], top7, pile), "drawmatch"), { type: "draw" }, A);
+    expect(s.hands[0].map((x) => x.id)).toEqual([1, 22, 21, 20]);
+    expect(s.last?.drew).toBe(3);
+    expect(s).toMatchObject({ drew: true, turn: 0 });
+  });
+
+  it("last card: forget to call and you can be caught for 2; call in time and you can't", () => {
+    const two = () => [c("num", "coral", 3, 1), c("num", "gold", 1, 2)];
+    const opp = () => [c("num", "teal", 9, 3), c("num", "coral", 9, 4)];
+    // Forgot to call.
+    let s = g.apply(on(rig(two(), opp(), top7, deck()), "lastcard"), { type: "play", card: 1 }, A);
+    expect(s.uncalled).toBe(0);
+    expect(g.validate(s, { type: "catch" }, A)).toBe("Nothing to catch");
+    const caught = g.apply(s, { type: "catch" }, B);
+    expect(caught.hands[0]).toHaveLength(3);
+    expect(caught.uncalled).toBeNull();
+    expect(caught.turn).toBe(1); // catching doesn't use up Bob's turn
+    // A late call still saves you if nobody caught you yet.
+    const late = g.apply(s, { type: "call" }, A);
+    expect(late.uncalled).toBeNull();
+    expect(g.validate(late, { type: "catch" }, B)).toBe("Nothing to catch");
+    // If the other player just carries on with their turn, the chance is gone.
+    const moved = g.apply(s, { type: "draw" }, B);
+    expect(moved.uncalled).toBeNull();
+    // …and Bob going down to one card without calling puts HIM on the spot instead.
+    expect(g.apply(s, { type: "play", card: 4 }, B).uncalled).toBe(1);
+    // Called beforehand: safe.
+    s = g.apply(on(rig(two(), opp(), top7, deck()), "lastcard"), { type: "call" }, A);
+    s = g.apply(s, { type: "play", card: 1 }, A);
+    expect(s.uncalled).toBeNull();
+    // Can't call with a big hand.
+    const big = on(rig([...two(), c("num", "gold", 5, 9)], opp(), top7), "lastcard");
+    expect(g.validate(big, { type: "call" }, A)).toMatch(/last cards/);
+  });
+
+  it("house-rule state is public, hands still are not", () => {
+    const s = g.init([A, B], 9, { stacking: true, lastcard: true });
+    const v = g.viewFor(s, A) as ColorRushView;
+    expect(v.rules).toEqual({ stacking: true, lastcard: true });
+    expect(v).toMatchObject({ stack: 0, uncalled: null, called: [false, false] });
+    for (const card of s.hands[1]) expect(JSON.stringify(v)).not.toContain(`"id":${card.id},`);
   });
 });

@@ -231,6 +231,7 @@ export const RULES: Record<string, Rules> = {
       "✦ Rainbow — play it on anything and choose the next color.",
       "+4 Rainbow — choose the color; your opponent draws 4 and loses their turn.",
       "Can't play (or don't want to)? Tap the deck to draw one. If it matches you may play it, otherwise pass.",
+      "House rules (Stacking, Swap 7 / Spin 0, Jump-in, Draw till match, Last-card call, Rush mode) can be switched on when you create the room.",
     ],
     tips: [
       "Save Rainbows for when you have no match — they can't be blocked.",
