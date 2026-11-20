@@ -179,10 +179,12 @@ export function playerMove(
  * Let the computer act for as long as the game is waiting on it. In simultaneous
  * games it locks in at the start of the round, before the human has chosen.
  */
-export function botTurns(engine: AnyEngine, state: unknown, meta: Meta, now: number, rng: () => number) {
+export function botTurns(
+  engine: AnyEngine, state: unknown, meta: Meta, now: number, rng: () => number, maxMoves = 200,
+) {
   let s = state;
   let m = meta;
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < maxMoves; i++) {
     if (outcome(engine, s, m) !== null || !waitingOn(engine, s).includes(BOT_ID)) break;
     let move = (engine.botMove ?? engine.autoMove)(s, BOT_ID, rng, m.options.bot ?? "hard");
     if (engine.validate(s, move, BOT_ID) !== null) move = engine.autoMove(s, BOT_ID, rng);

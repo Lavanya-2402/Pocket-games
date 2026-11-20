@@ -1,7 +1,9 @@
 import { START_COINS } from "./bidtactoe";
 import { HAND_SIZE } from "./colorrush";
 import { COST, MAX_DEFENDS, MAX_ENERGY, MAX_HP, MAX_ROUNDS, START_ENERGY } from "./duel";
+import { LEN as CODE_LEN, MAX_GUESSES } from "./codebreaker";
 import { N as DOTS_N } from "./dots";
+import { PAIRS } from "./memory";
 import { NEED, SIZE as FIVE_SIZE } from "./five";
 import { FLEET, SHIP_NAMES, SIZE } from "./seabattle";
 
@@ -148,6 +150,39 @@ export const RULES: Record<string, Rules> = {
     tips: [
       "Before you flip, picture each row as a column — that is what it becomes.",
       "Holding your flip is a threat in itself; your opponent has to plan around it.",
+    ],
+  },
+  codebreaker: {
+    title: "Code Breaker",
+    tagline: "Hide a code. Crack theirs first.",
+    goal: "Work out your opponent's secret code before they work out yours.",
+    steps: [
+      `Both players secretly choose a code of ${CODE_LEN} different digits.`,
+      "Take turns guessing the other player's code.",
+      "● means a digit is right and in the right place.",
+      "○ means a digit is in the code, but in a different place.",
+      "Both players always get the same number of guesses — crack it in the same round and it's a draw.",
+      `Nobody cracks it in ${MAX_GUESSES} guesses? Also a draw.`,
+    ],
+    tips: [
+      "Start with guesses that share no digits, to find out which digits are in the code.",
+      "You can see your opponent's guesses too — watch how close they are getting.",
+    ],
+  },
+  memory: {
+    title: "Memory Match",
+    tagline: "Flip two. Remember everything.",
+    goal: "Collect more pairs than your opponent.",
+    steps: [
+      `${PAIRS * 2} cards lie face down, hiding ${PAIRS} pairs.`,
+      "On your turn, flip two cards.",
+      "If they match, the pair is yours and you go again.",
+      "If they don't, both stay face up until the next player starts, then turn back over.",
+      "When every pair is taken, most pairs wins.",
+    ],
+    tips: [
+      "Watch your opponent's flips as closely as your own.",
+      "Not sure? Flip a card nobody has seen yet first — you might already know its partner.",
     ],
   },
   colorrush: {

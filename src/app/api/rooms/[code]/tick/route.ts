@@ -1,5 +1,5 @@
 import { getEngine } from "@/games";
-import { timeout, unwrap } from "@/games/runner";
+import { BOT_ID, botTurns, outcome, timeout, unwrap, waitingOn } from "@/games/runner";
 import {
   authPlayer, codeSchema, commit, handle, HttpError, identity, loadRoom, roomView,
 } from "@/lib/server";
@@ -21,7 +21,13 @@ export function POST(req: Request, ctx: RouteContext<"/api/rooms/[code]/tick">) 
     const { state, meta } = unwrap(room.state);
     if (!state) return Response.json(roomView(room, players, viewer));
 
-    const r = timeout(getEngine(room.game)!, state, meta, Date.now(), Math.random);
+    const engine = getEngine(room.game)!;
+    // Step-paced computer: one move per call, asked for by the player's phone.
+    const botStep = engine.botPace === "step" && outcome(engine, state, meta) === null
+      && waitingOn(engine, state).includes(BOT_ID);
+    const r = botStep
+      ? botTurns(engine, state, meta, Date.now(), Math.random, 1)
+      : timeout(engine, state, meta, Date.now(), Math.random);
     if (!r) return Response.json(roomView(room, players, viewer));
 
     try {

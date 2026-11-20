@@ -32,6 +32,11 @@ export interface GameEngine<S, M> {
   autoMove(state: S, playerId: string, rng: () => number): M;
   /** The computer opponent's move. Games without this can't be played against the computer. */
   botMove?(state: S, playerId: string, rng: () => number, level: "easy" | "hard"): M;
+  /**
+   * "step": the computer's moves are made one at a time, a moment apart, so the player
+   * can see what happened in between (e.g. each card it flips). Default: it replies at once.
+   */
+  botPace?: "step";
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -3,12 +3,14 @@
 import type { ReactNode } from "react";
 import type { SeaBattleView } from "@/games/seabattle";
 import { BidTacToeBoard } from "./bidtactoe-board";
+import { CodeBreakerBoard } from "./codebreaker-board";
 import { ColorRushBoard } from "./colorrush-board";
 import { Connect4Board } from "./connect4-board";
 import { DotsBoard } from "./dots-board";
 import { DuelBoard } from "./duel-board";
 import { FiveBoard } from "./five-board";
 import { GravityBoard } from "./gravity-board";
+import { MemoryBoard } from "./memory-board";
 import { SeaBattleBoard } from "./seabattle-board";
 import { TerritoryBoard } from "./territory-board";
 import { TicTacToeBoard } from "./tictactoe-board";
@@ -85,6 +87,14 @@ export const GAME_UI: Record<string, GameUI> = {
   five: { Board: FiveBoard, fit: "fit-square", mark: () => "●" },
   territory: { Board: TerritoryBoard, fit: "fit-tall", mark: () => "●" },
   gravity: { Board: GravityBoard, fit: "fit-tall", mark: () => "●" },
+  codebreaker: {
+    Board: CodeBreakerBoard,
+    fit: WIDE,
+    turnWord: "guess",
+    status: (s: { phase: string; ready: boolean[] }, me) =>
+      s.phase !== "set" ? null : me === null ? "Choosing codes…" : s.ready[me] ? "Code locked" : "Set your code",
+  },
+  memory: { Board: MemoryBoard, fit: "fit-tall" },
   colorrush: {
     Board: (p) => <ColorRushBoard state={p.state} mySeat={p.mySeat} names={p.names} layout={p.layout} onMove={p.onMove} />,
     fit: WIDE,

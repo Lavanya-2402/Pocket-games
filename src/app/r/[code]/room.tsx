@@ -251,6 +251,16 @@ export function Room({ code }: { code: string }) {
     };
   }, [deadline, offset, tick]);
 
+  // Step-paced computer opponent (e.g. Memory Match): ask for its next move after a beat,
+  // so each of its moves is seen on its own.
+  const botToMove = !!view && !view.winner && view.clock.waitingOn.includes(BOT_ID);
+  const versionNow = view?.version;
+  useEffect(() => {
+    if (!botToMove) return;
+    const t = setTimeout(tick, 1100);
+    return () => clearTimeout(t);
+  }, [botToMove, versionNow, tick]);
+
   // Game-over fanfare (not when opening a room that already finished).
   const winner = view?.winner ?? null;
   const prevWinner = useRef<string | null | undefined>(undefined);

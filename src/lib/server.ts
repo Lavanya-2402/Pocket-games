@@ -187,7 +187,10 @@ export async function commit(
   room: RoomRow, players: PlayerRow[], next: { state: unknown; meta: Meta }, before: Meta,
 ) {
   const engine = getEngine(room.game)!;
-  const r = next.state === null ? next : botTurns(engine, next.state, next.meta, Date.now(), Math.random);
+  // Step-paced games leave the computer's move for the phone to ask for a moment later.
+  const r = next.state === null || engine.botPace === "step"
+    ? next
+    : botTurns(engine, next.state, next.meta, Date.now(), Math.random);
   const stored = wrap(r.state, r.meta);
   const version = await saveState(room.code, room.version, stored);
   const saved: RoomRow = { ...room, state: stored, version };
