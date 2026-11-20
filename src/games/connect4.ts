@@ -161,10 +161,10 @@ export const connect4: GameEngine<Connect4State, Connect4Move> = {
     const open = Array.from({ length: COLS }, (_, c) => c).filter((c) => dropRow(s.board, c) !== -1);
     return { col: open[Math.floor(rng() * open.length)] };
   },
-  // Hard looks 6 moves ahead. Easy looks 2 ahead and sometimes just plays anywhere.
+  // Hard looks 5 moves ahead. Easy looks 2 ahead and sometimes just plays anywhere.
   botMove(s, _p, rng, level) {
     const open = Array.from({ length: COLS }, (_, c) => c).filter((c) => dropRow(s.board, c) !== -1);
     if (level === "easy" && rng() < 0.3) return { col: pick(open, rng) };
-    return { col: bestColumn(s.board, s.turn, level === "hard" ? 6 : 2, rng) };
+    return { col: bestColumn(s.board, s.turn, level === "hard" ? 5 : 2, rng) };
   },
 };

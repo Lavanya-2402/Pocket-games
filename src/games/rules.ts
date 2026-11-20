@@ -1,6 +1,8 @@
 import { START_COINS } from "./bidtactoe";
 import { HAND_SIZE } from "./colorrush";
 import { COST, MAX_DEFENDS, MAX_ENERGY, MAX_HP, MAX_ROUNDS, START_ENERGY } from "./duel";
+import { N as DOTS_N } from "./dots";
+import { NEED, SIZE as FIVE_SIZE } from "./five";
 import { FLEET, SHIP_NAMES, SIZE } from "./seabattle";
 
 export interface Rules {
@@ -85,6 +87,36 @@ export const RULES: Record<string, Rules> = {
     tips: [
       "After a hit, fire at the squares next to it to find which way the ship runs.",
       "Spread your first shots out in a checkerboard pattern — every ship covers at least 2 squares.",
+    ],
+  },
+  dots: {
+    title: "Dots and Boxes",
+    tagline: "Draw lines. Close boxes. Keep going.",
+    goal: "Own more boxes than your opponent when the grid is full.",
+    steps: [
+      "Take turns drawing one line between two neighbouring dots. Tap the gap between them.",
+      "Draw the fourth side of a box and it becomes yours.",
+      "Closing a box earns you another turn straight away — you can chain several in a row.",
+      `The game ends when all ${DOTS_N * DOTS_N} boxes are taken. Most boxes wins.`,
+    ],
+    tips: [
+      "Avoid drawing the third side of a box — your opponent will close it.",
+      "Late in the game, giving away two boxes can set you up to take a long chain.",
+    ],
+  },
+  five: {
+    title: "Five in a Row",
+    tagline: "Tic tac toe on a big board.",
+    goal: `Line up ${NEED} of your stones — across, down or diagonal.`,
+    steps: [
+      "Coral goes first, teal second.",
+      `Take turns placing one stone on any empty spot of the ${FIVE_SIZE}×${FIVE_SIZE} board.`,
+      "Stones never move and are never captured.",
+      "If the board fills up with no line of five, it's a draw.",
+    ],
+    tips: [
+      "Four in a row with both ends open can't be stopped — block at three.",
+      "Build two lines at once so your opponent can only block one.",
     ],
   },
   colorrush: {

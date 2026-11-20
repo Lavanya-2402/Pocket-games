@@ -5,7 +5,9 @@ import type { SeaBattleView } from "@/games/seabattle";
 import { BidTacToeBoard } from "./bidtactoe-board";
 import { ColorRushBoard } from "./colorrush-board";
 import { Connect4Board } from "./connect4-board";
+import { DotsBoard } from "./dots-board";
 import { DuelBoard } from "./duel-board";
+import { FiveBoard } from "./five-board";
 import { SeaBattleBoard } from "./seabattle-board";
 import { TicTacToeBoard } from "./tictactoe-board";
 
@@ -77,6 +79,8 @@ export const GAME_UI: Record<string, GameUI> = {
     status: (s: SeaBattleView, me) =>
       s.phase !== "place" ? null : me === null ? "Placing ships…" : s.ready[me] ? "Ships ready" : "Place your ships",
   },
+  dots: { Board: DotsBoard, fit: "fit-tall", mark: () => "■" },
+  five: { Board: FiveBoard, fit: "fit-square", mark: () => "●" },
   colorrush: {
     Board: (p) => <ColorRushBoard state={p.state} mySeat={p.mySeat} names={p.names} layout={p.layout} onMove={p.onMove} />,
     fit: WIDE,
