@@ -9,6 +9,7 @@ create table if not exists results (
   game         text not null,
   p0           uuid not null,                 -- moved first
   p1           uuid not null,
+  players      uuid[] not null default '{}',  -- everyone who played (2 to 4), in turn order
   names        text[] not null default '{}',  -- display names at the time, same order
   winner       uuid,                          -- null = draw
   forfeit      boolean not null default false,
@@ -19,6 +20,10 @@ create table if not exists results (
 );
 create index if not exists results_p0_idx on results(p0, finished_at desc);
 create index if not exists results_p1_idx on results(p1, finished_at desc);
+-- Added when games for three and four players arrived (harmless if already there).
+alter table results add column if not exists players uuid[] not null default '{}';
+update results set players = array[p0, p1] where players = '{}';
+create index if not exists results_players_idx on results using gin (players);
 
 -- A phone that has allowed notifications for an account.
 create table if not exists push_subscriptions (

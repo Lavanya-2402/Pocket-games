@@ -3,10 +3,12 @@ import { ACCOUNT_COLS, publicAccount, requireAccount, type Account } from "@/lib
 import { db, handle, HttpError, isMissing } from "@/lib/server";
 
 interface Row {
-  id: string; game: string; p0: string; p1: string; names: string[];
+  id: string; game: string; p0: string; p1: string; players: string[] | null; names: string[];
   winner: string | null; forfeit: boolean; vs_bot: boolean; finished_at: string;
 }
-const COLS = "id, game, p0, p1, names, winner, forfeit, vs_bot, finished_at";
+const COLS = "id, game, p0, p1, players, names, winner, forfeit, vs_bot, finished_at";
+/** Everyone who played, in turn order. */
+const seats = (row: Row) => (row.players?.length ? row.players : [row.p0, row.p1]);
 
 const tally = () => ({ wins: 0, losses: 0, draws: 0 });
 type Tally = ReturnType<typeof tally>;
@@ -30,12 +32,11 @@ export function GET(req: Request) {
     if (fErr) throw fErr;
     const friendIds = links.map((l) => (l.account_id === me.id ? l.friend_id : l.account_id));
     const ids = [me.id, ...friendIds];
-    const list = `(${ids.join(",")})`;
 
     const [ranked, mine, people] = await Promise.all([
-      db().from("results").select(COLS).or(`p0.in.${list},p1.in.${list}`).eq("vs_bot", false)
+      db().from("results").select(COLS).overlaps("players", ids).eq("vs_bot", false)
         .order("finished_at", { ascending: false }).limit(2000).returns<Row[]>(),
-      db().from("results").select(COLS).or(`p0.eq.${me.id},p1.eq.${me.id}`)
+      db().from("results").select(COLS).contains("players", [me.id])
         .order("finished_at", { ascending: false }).limit(15).returns<Row[]>(),
       friendIds.length
         ? db().from("accounts").select(ACCOUNT_COLS).in("id", friendIds).returns<Account[]>()
@@ -55,14 +56,17 @@ export function GET(req: Request) {
     const versus = new Map(friendIds.map((id) => [id, tally()]));
     const byGame = new Map<string, Tally>();
     for (const row of ranked.data) {
-      for (const id of [row.p0, row.p1]) {
+      const played = seats(row);
+      for (const id of played) {
         const t = overall.get(id);
         if (t) count(t, row, id);
       }
-      if (row.p0 === me.id || row.p1 === me.id) {
-        const other = row.p0 === me.id ? row.p1 : row.p0;
-        const v = versus.get(other);
-        if (v) count(v, row, me.id);
+      if (played.includes(me.id)) {
+        // Head to head only counts when one of the two of us won (or nobody did).
+        for (const other of played) {
+          const v = versus.get(other);
+          if (v && (row.winner === null || row.winner === me.id || row.winner === other)) count(v, row, me.id);
+        }
         if (!byGame.has(row.game)) byGame.set(row.game, tally());
         count(byGame.get(row.game)!, row, me.id);
       }
@@ -79,11 +83,12 @@ export function GET(req: Request) {
       byGame: [...byGame].map(([game, t]) => ({ game, name: getEngine(game)?.name ?? game, ...t }))
         .sort((a, b) => b.wins + b.losses + b.draws - (a.wins + a.losses + a.draws)),
       recent: mine.data.map((row) => {
-        const seat = row.p0 === me.id ? 0 : 1;
+        const played = seats(row);
+        const others = row.names.filter((_, i) => played[i] !== me.id);
         return {
           id: row.id,
           game: getEngine(row.game)?.name ?? row.game,
-          opponent: row.vs_bot ? "Computer" : row.names[1 - seat] ?? "Player",
+          opponent: row.vs_bot ? "Computer" : others.join(", ") || "Player",
           result: row.winner === null ? "draw" : row.winner === me.id ? "win" : "loss",
           forfeit: row.forfeit,
           vsBot: row.vs_bot,

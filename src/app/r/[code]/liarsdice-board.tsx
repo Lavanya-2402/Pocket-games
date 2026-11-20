@@ -31,18 +31,31 @@ const plural = (q: number, face: number) => `${q} × ${face}${q === 1 ? "" : "s"
 export function LiarsDiceBoard({ state, mySeat, names, layout, onMove }: BoardProps) {
   const s = state as LiarsDiceView;
   const me = mySeat;
-  const opp = (me === null ? layout[1] : 1 - me) as Seat;
+  // Everyone else, in a fixed order; you (or the first seat, for spectators) at the bottom.
   const bottom = (me ?? layout[0]) as Seat;
+  const others = layout.filter((seat) => seat !== bottom) as Seat[];
   const who = (seat: number) => (seat === me ? "You" : names[seat]);
   const myTurn = me !== null && s.turn === me && !s.winner;
-  const total = s.counts[0] + s.counts[1];
+  const total = s.counts.reduce((a, b) => a + b, 0);
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Opponent's hidden dice */}
-      <div className="flex items-center justify-between rounded-2xl bg-surface px-3 py-2">
-        <span className="text-sm font-semibold">{who(opp)} <span className="font-normal text-muted">· {s.counts[opp]} dice</span></span>
-        <span className="flex gap-1">{Array.from({ length: s.counts[opp] }, (_, i) => <Die key={i} face={null} size={26} />)}</span>
+      {/* The other players' hidden dice */}
+      <div className="flex flex-col gap-1.5">
+        {others.map((seat) => (
+          <div
+            key={seat}
+            className={`flex items-center justify-between rounded-2xl border bg-surface px-3 py-1.5 ${s.turn === seat && !s.winner ? "border-ink" : "border-transparent"}`}
+          >
+            <span className="min-w-0 truncate text-sm font-semibold">
+              {who(seat)}{" "}
+              <span className="font-normal text-muted">· {s.counts[seat] > 0 ? `${s.counts[seat]} dice` : "out"}</span>
+            </span>
+            <span className="flex gap-1">
+              {Array.from({ length: s.counts[seat] }, (_, i) => <Die key={i} face={null} size={others.length > 1 ? 20 : 26} />)}
+            </span>
+          </div>
+        ))}
       </div>
 
       {/* Last round's showdown */}
@@ -54,12 +67,12 @@ export function LiarsDiceBoard({ state, mySeat, names, layout, onMove }: BoardPr
             {" — "}
             {s.reveal.count >= s.reveal.bid.q ? "the bid was true" : "it was a bluff"}. <b>{who(s.reveal.loser)}</b> lose{s.reveal.loser === me ? "" : "s"} a die.
           </p>
-          {([opp, bottom] as Seat[]).map((seat) => (
+          {[...others, bottom].filter((seat) => s.reveal!.dice[seat].length > 0).map((seat) => (
             <div key={seat} className="flex items-center gap-2">
               <span className="w-14 shrink-0 truncate text-xs text-muted">{who(seat)}</span>
               <span className="flex gap-1">
                 {s.reveal!.dice[seat].map((d, i) => (
-                  <Die key={i} face={d} size={24} lit={d === s.reveal!.bid.face} dim={d !== s.reveal!.bid.face} />
+                  <Die key={i} face={d} size={others.length > 1 ? 20 : 24} lit={d === s.reveal!.bid.face} dim={d !== s.reveal!.bid.face} />
                 ))}
               </span>
             </div>
@@ -85,7 +98,7 @@ export function LiarsDiceBoard({ state, mySeat, names, layout, onMove }: BoardPr
       {/* Your own dice */}
       {me !== null ? (
         <div className="flex flex-col items-center gap-1.5">
-          <span className="text-xs text-muted">Your dice (only you can see these)</span>
+          <span className="text-xs text-muted">{s.hand.length ? "Your dice (only you can see these)" : "You're out of dice — watching the rest"}</span>
           <span className="flex gap-2">
             {s.hand.map((d, i) => <Die key={`${s.round}-${i}`} face={d} size={48} lit={s.bid?.face === d} />)}
           </span>

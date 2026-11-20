@@ -107,7 +107,7 @@ export const GAME_UI: Record<string, GameUI> = {
   minefield: { Board: MinefieldBoard, fit: "fit-tall" },
   liarsdice: { Board: LiarsDiceBoard, fit: WIDE },
   colorrush: {
-    Board: (p) => <ColorRushBoard state={p.state} {...two(p)} onMove={p.onMove} />,
+    Board: ColorRushBoard,
     fit: WIDE,
   },
 };

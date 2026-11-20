@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import type { BoardProps } from "./boards";
 import {
-  canPlay, COLORS, identical, RULES, type Card, type Color, type ColorRushMove, type ColorRushView,
+  canPlay, COLORS, identical, RULES, type Card, type Color, type ColorRushView,
 } from "@/games/colorrush";
-
-type Seat = 0 | 1;
 
 const HEX: Record<Color, string> = {
   coral: "var(--x)",
@@ -62,28 +61,24 @@ function CardBack({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   );
 }
 
-export function ColorRushBoard({
-  state, mySeat, names, layout, onMove,
-}: {
-  state: ColorRushView;
-  mySeat: number | null;
-  names: [string, string];
-  /** Game seats in room-seat order, so positions and colours stay put across rematches. */
-  layout: [number, number];
-  onMove: (m: ColorRushMove) => void;
-}) {
-  const me = mySeat === 0 || mySeat === 1 ? (mySeat as Seat) : null;
-  const opp = (me === null ? layout[1] : 1 - me) as Seat;
-  const bottom = (me ?? layout[0]) as Seat;
+export function ColorRushBoard({ state: raw, mySeat, names, layout, onMove }: BoardProps) {
+  const state = raw as ColorRushView;
+  const me = mySeat;
+  const n = state.players.length;
+  // You sit at the bottom (the first seat does, for spectators); everyone else along the top.
+  const bottom = me ?? layout[0];
+  const others = layout.filter((seat) => seat !== bottom);
   const myTurn = me !== null && state.turn === me && !state.winner;
   const [picking, setPicking] = useState<Card | null>(null); // Rainbow waiting for a color
 
-  const who = (s: Seat) => (s === me ? "You" : names[s]);
+  const who = (s: number) => (s === me ? "You" : names[s]);
   const last = state.last;
   const rules = state.rules ?? {};
   const stack = state.stack ?? 0;
   const penaltyName = state.stackKind === "wild4" ? "+4" : "+2";
   const live = me !== null && !state.winner;
+  /** Who the last action landed on (older saved games don't record it). */
+  const target = last ? last.to ?? (last.by + 1) % n : 0;
 
   /** Can this card be played right now? On your turn, or as a jump-in. */
   function playable(card: Card) {
@@ -94,7 +89,7 @@ export function ColorRushBoard({
   }
   const canDraw = myTurn && (stack > 0 || !state.drew);
   const canCall = live && !!rules.lastcard && state.hand.length <= 2 && !state.called?.[me!];
-  const canCatch = live && !!rules.lastcard && state.uncalled === opp;
+  const canCatch = live && !!rules.lastcard && state.uncalled !== null && state.uncalled !== me;
   const onRules = RULES.filter((r) => rules[r.id as keyof typeof rules]);
 
   function tapCard(card: Card) {
@@ -105,15 +100,27 @@ export function ColorRushBoard({
 
   return (
     <div className="flex flex-col gap-3 sm:gap-5">
-      {/* Opponent */}
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm">
-          <b>{who(opp)}</b> · {state.counts[opp]} card{state.counts[opp] === 1 ? "" : "s"}
-          {state.counts[opp] === 1 && !state.winner && <span className="ml-1 font-bold text-x">Last card!</span>}
-        </span>
-        <span className="flex -space-x-5">
-          {Array.from({ length: Math.min(state.counts[opp], 8) }, (_, i) => <CardBack key={i} size="sm" />)}
-        </span>
+      {/* The other players */}
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(1, others.length)}, minmax(0, 1fr))` }}>
+        {others.map((seat) => {
+          const count = state.counts[seat];
+          const turn = state.turn === seat && !state.winner;
+          return (
+            <div
+              key={seat}
+              className={`flex min-w-0 items-center justify-between gap-2 rounded-2xl border px-2.5 py-1.5 ${turn ? "border-ink bg-surface" : "border-transparent"}`}
+            >
+              <span className="min-w-0 text-sm">
+                <b className="block truncate">{who(seat)}</b>
+                <span className="text-xs text-muted">{count} card{count === 1 ? "" : "s"}</span>
+                {count === 1 && !state.winner && <span className="ml-1 text-xs font-bold text-x">Last card!</span>}
+              </span>
+              <span className={`flex shrink-0 ${others.length > 1 ? "-space-x-6" : "-space-x-5"}`}>
+                {Array.from({ length: Math.min(count, others.length > 1 ? 4 : 8) }, (_, i) => <CardBack key={i} size="sm" />)}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Table */}
@@ -149,12 +156,12 @@ export function ColorRushBoard({
         <p key={JSON.stringify(last)} className="rise text-center text-sm sm:-mt-2">
           {who(last.by)}{" "}
           {last.note === "call" ? <b>called &ldquo;Last card!&rdquo;</b>
-            : last.note === "catch" ? <>caught {who((1 - last.by) as Seat)} not calling last card — <b>{who((1 - last.by) as Seat)} drew 2</b></>
+            : last.note === "catch" ? <>caught {who(target)} not calling last card — <b>{who(target)} drew 2</b></>
             : last.play
               ? <>{last.note === "jumpin" ? "jumped in with" : "played"} <b>{describe(last.play)}</b>{last.color && <> → {LABEL[last.color]}</>}
-                  {last.note === "swap" && <> and <b>swapped hands</b></>}
-                  {last.forced > 0 && <>; {who((1 - last.by) as Seat)} drew {last.forced}</>}
-                  {(last.play.kind === "block" || last.forced > 0) && !state.winner && <> — {who(last.by)} go{last.by === me ? "" : "es"} again</>}</>
+                  {last.note === "swap" && <> and <b>swapped hands with {who(target)}</b></>}
+                  {last.forced > 0 && <>; {who(target)} drew {last.forced} and lost a turn</>}
+                  {last.play.kind === "block" && !state.winner && <>; {who((last.by + 1) % n)} lost a turn</>}</>
               : last.drew ? `drew ${last.drew === 1 ? "a card" : `${last.drew} cards`}` : "passed"}
           .
         </p>
@@ -164,7 +171,7 @@ export function ColorRushBoard({
         <div className="flex justify-center gap-2">
           {canCatch && (
             <button onClick={() => onMove({ type: "catch" })} className="pop h-11 rounded-full bg-x px-5 font-semibold text-white active:scale-95">
-              Catch {names[opp]}! (+2)
+              Catch {names[state.uncalled!]}! (+2)
             </button>
           )}
           {canCall && (

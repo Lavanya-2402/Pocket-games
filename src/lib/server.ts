@@ -229,20 +229,22 @@ async function recordResult(room: RoomRow, players: PlayerRow[], state: unknown,
   const engine = getEngine(room.game)!;
   const order = meta.order ?? (state as { players: string[] }).players;
   const w = outcome(engine, state, meta);
-  const { error } = await db().from("results").insert({
+  const row = {
     id: meta.resultId,
     room_code: room.code,
     game: room.game,
     p0: order[0],
     p1: order[1],
-    players: order,
     names: order.map((id) => players.find((p) => p.player_id === id)?.name ?? "Player"),
     winner: w === "draw" ? null : w,
     forfeit: meta.forfeit !== null,
     vs_bot: order.includes(BOT_ID),
     moves: meta.log.length,
     replay: { seed: meta.seed, order, rules: meta.options.rules, log: meta.log },
-  });
+  };
+  let { error } = await db().from("results").insert({ ...row, players: order });
+  // An older copy of migration 003 has no "players" column: still keep the result.
+  if (error && ["PGRST204", "42703"].includes(error.code)) ({ error } = await db().from("results").insert(row));
   // Before migration 003 the table doesn't exist; the game itself is unaffected.
   if (error && !isMissing(error) && error.code !== "23505") console.error("result not saved", error);
 }

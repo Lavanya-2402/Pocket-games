@@ -96,7 +96,7 @@ export const RULES: Record<string, Rules> = {
   dots: {
     title: "Dots and Boxes",
     tagline: "Draw lines. Close boxes. Keep going.",
-    goal: "Own more boxes than your opponent when the grid is full.",
+    goal: "Own the most boxes when the grid is full. For 2 to 4 players.",
     steps: [
       "Take turns drawing one line between two neighbouring dots. Tap the gap between them.",
       "Draw the fourth side of a box and it becomes yours.",
@@ -104,7 +104,7 @@ export const RULES: Record<string, Rules> = {
       `The game ends when all ${DOTS_N * DOTS_N} boxes are taken. Most boxes wins.`,
     ],
     tips: [
-      "Avoid drawing the third side of a box — your opponent will close it.",
+      "Avoid drawing the third side of a box — the next player will close it.",
       "Late in the game, giving away two boxes can set you up to take a long chain.",
     ],
   },
@@ -174,7 +174,7 @@ export const RULES: Record<string, Rules> = {
   memory: {
     title: "Memory Match",
     tagline: "Flip two. Remember everything.",
-    goal: "Collect more pairs than your opponent.",
+    goal: "Collect the most pairs. For 2 to 4 players.",
     steps: [
       `${PAIRS * 2} cards lie face down, hiding ${PAIRS} pairs.`,
       "On your turn, flip two cards.",
@@ -183,59 +183,59 @@ export const RULES: Record<string, Rules> = {
       "When every pair is taken, most pairs wins.",
     ],
     tips: [
-      "Watch your opponent's flips as closely as your own.",
+      "Watch everyone else's flips as closely as your own.",
       "Not sure? Flip a card nobody has seen yet first — you might already know its partner.",
     ],
   },
   minefield: {
     title: "Minefield Duel",
-    tagline: "One minefield, two hunters.",
-    goal: `Find ${MINE_TARGET} of the ${MINES} hidden mines before your opponent does.`,
+    tagline: "One minefield, rival hunters.",
+    goal: `Find the most of the ${MINES} hidden mines. With two players, the first to ${MINE_TARGET} wins.`,
     steps: [
-      "Both players share the same grid. Take turns opening one square.",
+      "Everyone shares the same grid. Take turns opening one square.",
       "Found a mine? It's yours — and you open another square straight away.",
       "A safe square shows how many mines touch it (including diagonally), and your turn ends.",
       "A square with no mines nearby opens its neighbours automatically.",
     ],
     tips: [
       "If a number equals the unopened squares around it, every one of them is a mine.",
-      "Opening a safe square gives your opponent clues too — sometimes a risky guess is better.",
+      "Opening a safe square gives everyone else clues too — sometimes a risky guess is better.",
     ],
   },
   liarsdice: {
     title: "Liar's Dice",
     tagline: "Bid. Bluff. Call it.",
-    goal: "Make your opponent lose all their dice.",
+    goal: "Be the last player with dice. For 2 to 4 players.",
     steps: [
-      `Each player starts with ${DICE} dice. Every round you both roll in secret.`,
-      "Take turns bidding how many dice of one face there are across BOTH hands, like \"three 4s\".",
+      `Each player starts with ${DICE} dice. Every round everyone rolls in secret.`,
+      "Take turns bidding how many dice of one face there are across ALL hands, like \"three 4s\".",
       "Each bid must be higher: more dice of any face, or the same number of a higher face.",
-      "Instead of bidding you can call \"Liar!\". All dice are shown and counted.",
+      "Instead of bidding you can call \"Liar!\" on the player before you. All dice are shown and counted.",
       "If the bid was true, the caller loses a die. If it was a bluff, the bidder does.",
-      "Whoever lost the die starts the next round. Run out of dice and you lose.",
+      "Whoever lost the die starts the next round. Run out of dice and you're out; the last player left wins.",
     ],
     tips: [
-      "With ten dice in play, about one in six shows any given face — bid from what you hold.",
+      "About one die in six shows any given face — count the dice in play and bid from what you hold.",
       "A confident raise on a face you don't have can scare off a call. Sometimes.",
     ],
   },
   colorrush: {
     title: "Color Rush",
     tagline: "Match colors. Empty your hand first.",
-    goal: "Be the first player to play all your cards.",
+    goal: "Be the first player to play all your cards. For 2 to 4 players.",
     steps: [
       `Each player gets ${HAND_SIZE} cards. One card starts face up in the middle.`,
       "On your turn, play a card that matches the top card's color, or its number or symbol.",
-      "⊘ Block — your opponent loses their turn, so you go again.",
-      "+2 — your opponent draws 2 cards and loses their turn.",
+      "⊘ Block — the next player loses their turn.",
+      "+2 — the next player draws 2 cards and loses their turn.",
       "✦ Rainbow — play it on anything and choose the next color.",
-      "+4 Rainbow — choose the color; your opponent draws 4 and loses their turn.",
+      "+4 Rainbow — choose the color; the next player draws 4 and loses their turn.",
       "Can't play (or don't want to)? Tap the deck to draw one. If it matches you may play it, otherwise pass.",
       "House rules (Stacking, Swap 7 / Spin 0, Jump-in, Draw till match, Last-card call, Rush mode) can be switched on when you create the room.",
     ],
     tips: [
       "Save Rainbows for when you have no match — they can't be blocked.",
-      "When your opponent is down to their last card, hit them with +2 or +4.",
+      "When the next player is down to their last card, hit them with +2 or +4.",
     ],
   },
 };
